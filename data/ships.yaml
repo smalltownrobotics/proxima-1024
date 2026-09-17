@@ -1,0 +1,122 @@
+# Proxima Sim — Ship Class Presets
+#
+# Real ship-design archetypes with mass-per-person ratios drawn from published proposals.
+# Each carries crew-capacity bounds and propulsion compatibility (which propulsion types
+# can plausibly push this much mass to interstellar speeds).
+#
+# Schema:
+#   id, name, anchored_in (citation)
+#   density_tons_per_person: ship total mass per crew member at full capacity
+#   min_crew, max_crew: integer bounds
+#   compatible_propulsion: list of propulsion ids that can plausibly handle this class
+#   notes: real constraints
+
+version: 1
+
+ships:
+
+- id: ship_modular_cluster
+  name: Modular Cluster
+  anchored_in: "Generic modular concept; ISS lineage scaled up"
+  density_tons_per_person: 4
+  min_crew: 50
+  max_crew: 500
+  compatible_propulsion:
+    - prop_nuclear_electric
+    - prop_fusion_pulse_daedalus
+    - prop_fusion_continuous
+    - prop_antimatter_catalyzed
+    - prop_antimatter_pure
+  notes: |
+    Smallest plausible crewed interstellar vessel. Connected pressure modules. Limited
+    rotational gravity (centrifuge segment). Light ship; can be pushed by lower-Isp drives.
+
+- id: ship_oneill_cylinder
+  name: O'Neill Cylinder
+  anchored_in: "Gerard K. O'Neill, 'The High Frontier' (1976)"
+  density_tons_per_person: 5
+  min_crew: 1000
+  max_crew: 50000
+  compatible_propulsion:
+    - prop_fusion_pulse_daedalus
+    - prop_fusion_continuous
+    - prop_antimatter_catalyzed
+    - prop_antimatter_pure
+    - prop_beam_rider     # only at gram/ton scales — flagged in compatibility check
+  notes: |
+    Rotating cylinder, ~6.5 km diameter × 32 km long for largest variant. Internal
+    1g via spin. High structural mass per unit habitable volume. Cannot be pushed
+    by sail or electric drives — too massive.
+
+- id: ship_bernal_sphere
+  name: Bernal Sphere
+  anchored_in: "John Desmond Bernal (1929); modernized in O'Neill 1976"
+  density_tons_per_person: 12
+  min_crew: 200
+  max_crew: 10000
+  compatible_propulsion:
+    - prop_fusion_pulse_daedalus
+    - prop_fusion_continuous
+    - prop_antimatter_catalyzed
+    - prop_antimatter_pure
+  notes: |
+    Spherical pressure vessel rotating for 1g equator. Higher structural mass than a
+    cylinder per crew. Mid-scale; better for crews of a few thousand than tens of thousands.
+
+- id: ship_stanford_torus
+  name: Stanford Torus
+  anchored_in: "Stanford / NASA Ames summer study (1975)"
+  density_tons_per_person: 20
+  min_crew: 500
+  max_crew: 10000
+  compatible_propulsion:
+    - prop_fusion_pulse_daedalus
+    - prop_fusion_continuous
+    - prop_antimatter_catalyzed
+    - prop_antimatter_pure
+  notes: |
+    Toroidal habitat, ~1.8 km diameter. Massive shielding requirements. Best for medium
+    crews when maximum radiation protection is wanted.
+
+- id: ship_aurora_ark
+  name: Aurora-class Generation Ark
+  anchored_in: "Kim Stanley Robinson, 'Aurora' (2015) — fictional but scientifically rigorous"
+  density_tons_per_person: 25
+  min_crew: 1000
+  max_crew: 5000
+  compatible_propulsion:
+    - prop_fusion_pulse_daedalus
+    - prop_fusion_continuous
+    - prop_antimatter_catalyzed
+    - prop_antimatter_pure
+  notes: |
+    Multi-biome ark — 24 separated ecosystems for genetic + biological resilience. Highest
+    mass-per-person but most resilient to closed-loop failure. Aurora simulated 2,000 crew
+    over 159 years.
+
+- id: ship_hollowed_asteroid
+  name: Hollowed Asteroid
+  anchored_in: "Various asteroid-habitat concepts; KSR novels; Charles Stross, 'Saturn's Children'"
+  density_tons_per_person: 50
+  min_crew: 1000
+  max_crew: 100000
+  compatible_propulsion:
+    - prop_antimatter_pure   # only matter-antimatter has the Isp to push asteroid mass
+  notes: |
+    1-10 km nickel-iron asteroid hollowed and spun. Massive natural radiation shielding.
+    Mass is the killer — only the highest-Isp drives can push this to interstellar speeds.
+    Plausible only with mature in-space mining/manufacturing.
+
+- id: ship_starshot_probe
+  name: Starshot-class Probe
+  anchored_in: "Breakthrough Starshot (2016+, gram-scale lightsail concept)"
+  density_tons_per_person: 0      # unmanned only
+  min_crew: 0
+  max_crew: 0
+  compatible_propulsion:
+    - prop_solar_sail
+    - prop_beam_rider
+  notes: |
+    Unmanned probe class — gram-to-kg payload, laser-pushed sail. Excluded from crewed-mission
+    flow but kept in the catalogue so the picker can flag 'this propulsion only works for
+    Starshot-class probes, not crewed vessels.'

@@ -1,0 +1,297 @@
+# Proxima Sim — Propulsion Requirements (Materials + Energy)
+#
+# For each propulsion class: fuel type, fuel mass scaling, critical materials,
+# energy source profile, infrastructure dependencies. Numbers are order-of-magnitude
+# best-effort from published proposals — anchored not invented.
+#
+# Schema:
+#   id: matches tech_timeline.yaml
+#   fuel:
+#     type: chemical name(s)
+#     specific_impulse_s: rocket equation Isp
+#     fuel_mass_per_payload_ton: kg of fuel per ton of payload to reach the cruise velocity
+#       (rough Tsiolkovsky calc; for staged/sail/beam systems, this can be 0)
+#   critical_materials: list of {material, kg_per_payload_ton, source, scarcity_note}
+#   energy:
+#     source: onboard | ground_side | self_powered
+#     peak_power_required_mw: peak MW for sustained operation
+#     onboard_reactor: optional reactor type required
+#   infrastructure:
+#     - {name, description, earliest_year_proxy, gates_propulsion: bool}
+#   limitations:
+#     - free-text constraints (deceleration, scaling, payload caps)
+#   sources: list of citations
+
+version: 1
+
+propulsion:
+
+# =================================================================
+- id: prop_chemical
+  max_velocity_c: 0.0001
+  fuel:
+    type: "LOX/LH2 or methalox"
+    specific_impulse_s: 460
+  critical_materials:
+    - {material: "Liquid hydrogen / liquid oxygen / methane", kg_per_payload_ton: 9000, source: "Industrial cryogenics", scarcity_note: "Trivially available; bulk production"}
+    - {material: "Aluminum / steel / composite tank materials", kg_per_payload_ton: 200, source: "Standard aerospace", scarcity_note: "Abundant"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 50000   # Saturn V at burn
+    onboard_reactor: none
+  infrastructure:
+    - {name: "Launch pad / orbital tanker depot", description: "Earth surface or LEO refueling", earliest_year_proxy: 1965, gates_propulsion: false}
+  limitations:
+    - "Delta-v ceiling ~14 km/s with multistage. Cannot reach 0.001c (300 km/s)."
+    - "Useful only for orbital insertion or final braking."
+  sources:
+    - "Saturn V design data; Starship/Raptor public specifications"
+
+# =================================================================
+- id: prop_ion_electric
+  max_velocity_c: 0.0002
+  fuel:
+    type: "Xenon (operational), krypton (cheaper alternative)"
+    specific_impulse_s: 4500
+  critical_materials:
+    - {material: "Xenon", kg_per_payload_ton: 700, source: "Atmospheric distillation", scarcity_note: "Earth atmosphere reserves limited; ~5 ppb"}
+    - {material: "Krypton", kg_per_payload_ton: 700, source: "Atmospheric distillation", scarcity_note: "More abundant than xenon"}
+    - {material: "Solar panels OR reactor", kg_per_payload_ton: 50, source: "PV / fission", scarcity_note: "Scales with mission distance from Sun"}
+  energy:
+    source: onboard
+    peak_power_required_mw: 0.05
+    onboard_reactor: power_fission_reactor   # for outer-system / interstellar; solar fades
+  infrastructure:
+    - {name: "Long-duration reliability validation", description: "Ion engines must run for years without failure", earliest_year_proxy: 2010, gates_propulsion: false}
+  limitations:
+    - "Thrust is mN-scale. Acceleration timeline measured in years."
+    - "Continuous power source required for the entire burn."
+    - "Practical for unmanned only at interstellar distances."
+  sources:
+    - "Deep Space 1 / Dawn / BepiColombo flight data"
+
+# =================================================================
+- id: prop_nuclear_thermal
+  max_velocity_c: 0.001
+  fuel:
+    type: "Liquid hydrogen propellant + uranium-235 reactor core"
+    specific_impulse_s: 900
+  critical_materials:
+    - {material: "Liquid hydrogen", kg_per_payload_ton: 2500, source: "Industrial cryogenics", scarcity_note: "Bulk production; storage challenge"}
+    - {material: "Highly-enriched uranium-235", kg_per_payload_ton: 50, source: "Centrifuge enrichment", scarcity_note: "Treaty-controlled; political gating"}
+    - {material: "Refractory reactor materials (TRISO, tungsten)", kg_per_payload_ton: 20, source: "Specialty nuclear industry", scarcity_note: "Limited but available"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 1000   # thermal
+    onboard_reactor: power_fission_reactor
+  infrastructure:
+    - {name: "Nuclear materials handling + launch licensing", description: "Cape-class clearance; international treaties", earliest_year_proxy: 2030, gates_propulsion: true}
+    - {name: "Ground reactor test facility", description: "Hot-fire testing; NERVA had Jackass Flats", earliest_year_proxy: 2027, gates_propulsion: false}
+  limitations:
+    - "Doubles delta-v vs chemical; still 1000x too slow for interstellar."
+    - "Useful for fast solar-system cargo, orbital assembly of bigger craft."
+  sources:
+    - "NERVA program data (1955-1972); DRACO public materials (2024)"
+
+# =================================================================
+- id: prop_nuclear_electric
+  max_velocity_c: 0.005
+  fuel:
+    type: "Xenon propellant + fission reactor"
+    specific_impulse_s: 7000
+  critical_materials:
+    - {material: "Xenon", kg_per_payload_ton: 200, source: "Atmospheric distillation", scarcity_note: "Reserves a real limit at scale"}
+    - {material: "Reactor fuel (uranium-235 or LEU+)", kg_per_payload_ton: 30, source: "Centrifuge enrichment", scarcity_note: "Treaty + reactor lifetime"}
+    - {material: "Radiator panels (carbon-composite)", kg_per_payload_ton: 100, source: "Aerospace composite", scarcity_note: "Mass-driver for waste heat"}
+  energy:
+    source: onboard
+    peak_power_required_mw: 1
+    onboard_reactor: power_fission_reactor
+  infrastructure:
+    - {name: "Reactor longevity proof (>100 yr)", description: "No reactor has run unmaintained for a century. Open problem.", earliest_year_proxy: 2080, gates_propulsion: true}
+    - {name: "Waste-heat radiator manufacturing at scale", description: "Specific to NEP", earliest_year_proxy: 2050, gates_propulsion: false}
+  limitations:
+    - "Cruise speed 0.001c-0.005c. Voyage to Proxima 800-4000 years."
+    - "Generational scale only; can never get a founding crew to arrival."
+    - "Reactor wear over centuries is the unsolved engineering problem."
+  sources:
+    - "Project Prometheus 2003-2005 NASA studies"
+
+# =================================================================
+- id: prop_solar_sail
+  max_velocity_c: 0.2     # gram-scale only (Starshot); larger payloads cap below
+  max_payload_tons: 10
+  velocity_by_payload:
+    - {below_tons: 0.001, max_velocity_c: 0.2}      # Starshot scale
+    - {below_tons: 1.0, max_velocity_c: 0.05}
+    - {below_tons: 10.0, max_velocity_c: 0.01}
+  fuel:
+    type: "Photons (solar) or laser (beam)"
+    specific_impulse_s: 999999       # 'effectively infinite' for sail
+  critical_materials:
+    - {material: "Aluminized polymer film (Mylar / CP1)", kg_per_payload_ton: 30, source: "Industrial film production", scarcity_note: "Sail area scales with payload; thin-film tech limit"}
+    - {material: "Carbon-fiber boom / structural support", kg_per_payload_ton: 80, source: "Aerospace composite", scarcity_note: "Mass-payload tradeoff"}
+  energy:
+    source: ground_side    # for laser sails; sun for solar sails
+    peak_power_required_mw: 100000   # 100 GW for laser sail to push gram-scale at 0.2c (Starshot scale)
+    onboard_reactor: none
+  infrastructure:
+    - {name: "Close-Sun perihelion deployment infrastructure", description: "Solar sails get peak thrust at 0.1 AU from Sun", earliest_year_proxy: 2050, gates_propulsion: true}
+    - {name: "Orbital / lunar laser array (for laser-pushed)", description: "Gigawatt-petawatt directed-energy installation", earliest_year_proxy: 2120, gates_propulsion: true}
+  limitations:
+    - "Cannot scale to 50,000-ton vessels. Sail area becomes impossible."
+    - "Effective for gram-to-ton craft only."
+    - "Laser-pushed sails cannot decelerate at destination unless local laser exists."
+  sources:
+    - "IKAROS, LightSail 2 flight data; Robert Forward 1984; Breakthrough Starshot"
+
+# =================================================================
+- id: prop_fusion_pulse_daedalus
+  max_velocity_c: 0.12
+  fuel:
+    type: "Deuterium + Helium-3 (D+He3) pellets, electron-beam ignition"
+    specific_impulse_s: 1000000     # 10^6 s, fusion-class
+  critical_materials:
+    - {material: "Deuterium", kg_per_payload_ton: 30, source: "Sea water (33 mg/kg)", scarcity_note: "Effectively unlimited"}
+    - {material: "Helium-3", kg_per_payload_ton: 60, source: "Lunar regolith mining (10 ppb), Jupiter atmosphere skim", scarcity_note: "BOTTLENECK — currently zero infrastructure; lunar mining must mature"}
+    - {material: "Beryllium / molybdenum pellet shells", kg_per_payload_ton: 5, source: "Specialty metallurgy", scarcity_note: "Beryllium is moderately rare but not gating"}
+    - {material: "Magnetic-nozzle superconductors", kg_per_payload_ton: 12, source: "High-Tc superconductor industry", scarcity_note: "Yttrium / rare-earth supply"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 100   # ignition/initiation power; sustained from fusion itself
+    onboard_reactor: power_fusion_dt   # auxiliary; main thrust from fusion pulses
+  infrastructure:
+    - {name: "Lunar He-3 mining at industrial scale", description: "10s-100s kg He-3 per year", earliest_year_proxy: 2110, gates_propulsion: true}
+    - {name: "Orbital assembly capability for 50,000-ton ships", description: "Mass-driver or NTR cargo lift over years", earliest_year_proxy: 2090, gates_propulsion: true}
+    - {name: "Inertial-confinement fusion ignition reliability", description: "Per-pulse ignition reliability over decades of operation", earliest_year_proxy: 2080, gates_propulsion: true}
+    - {name: "Magsail braking system at destination", description: "Required pair-tech; without it, ship overshoots target", earliest_year_proxy: 2090, gates_propulsion: true}
+  limitations:
+    - "Cannot decelerate symmetrically — relies on magsail braking from interstellar plasma + destination star wind."
+    - "He-3 fuel supply caps mission cadence to a few per decade once infrastructure is mature."
+    - "Pulse-ignition timing failure modes (one bad pulse → cascade)."
+  sources:
+    - "Project Daedalus (BIS, 1978); Project Icarus (2009-); Friedwardt Winterberg fusion drive papers"
+
+# =================================================================
+- id: prop_fusion_continuous
+  max_velocity_c: 0.15
+  fuel:
+    type: "Deuterium + He-3 magnetic confinement"
+    specific_impulse_s: 800000
+  critical_materials:
+    - {material: "Deuterium", kg_per_payload_ton: 35, source: "Sea water", scarcity_note: "Unlimited"}
+    - {material: "Helium-3", kg_per_payload_ton: 75, source: "Lunar / gas-giant", scarcity_note: "BOTTLENECK — same as fusion-pulse"}
+    - {material: "Carbon-nanotube structural mesh", kg_per_payload_ton: 80, source: "Macro-scale CNT production", scarcity_note: "Production capacity speculative"}
+    - {material: "High-Tc superconducting magnets", kg_per_payload_ton: 30, source: "Specialty industry", scarcity_note: "Rare-earth gating"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 5
+    onboard_reactor: power_fusion_dhe3
+  infrastructure:
+    - {name: "Sustained D-He3 confinement for years", description: "Magnetic confinement at 100MW+ continuous, no comparable test today", earliest_year_proxy: 2120, gates_propulsion: true}
+    - {name: "Lunar He-3 mining at industrial scale", description: "Same as fusion-pulse", earliest_year_proxy: 2110, gates_propulsion: true}
+  limitations:
+    - "Needs continuous magnetic confinement — single failure = total loss."
+    - "Cruise speed 0.05-0.15c."
+    - "Same braking constraint as fusion-pulse."
+  sources:
+    - "Bussard polywell; Princeton FRC research; Eric Lerner focus fusion (speculative)"
+
+# =================================================================
+- id: prop_beam_rider
+  max_velocity_c: 0.3
+  max_payload_tons: 5
+  velocity_by_payload:
+    - {below_tons: 0.001, max_velocity_c: 0.3}
+    - {below_tons: 1.0, max_velocity_c: 0.10}
+    - {below_tons: 5.0, max_velocity_c: 0.02}
+  fuel:
+    type: "Photons (laser-pushed sail)"
+    specific_impulse_s: 999999
+  critical_materials:
+    - {material: "Carbon-nanotube / graphene sail", kg_per_payload_ton: 5, source: "Macro CNT production", scarcity_note: "Hard ceiling on sail size + thickness"}
+    - {material: "Ultra-low-mass payload structure", kg_per_payload_ton: 50, source: "Aerospace", scarcity_note: "Payload massively constrained"}
+  energy:
+    source: ground_side
+    peak_power_required_mw: 1000000   # 1 TW for credible interstellar push of crewed mass
+    onboard_reactor: none
+  infrastructure:
+    - {name: "Solar-orbital gigawatt-petawatt laser array", description: "Phased lunar/orbital array; civilizational-scale build", earliest_year_proxy: 2170, gates_propulsion: true}
+    - {name: "Power generation (solar or fusion) at terawatt scale", description: "Must sustain laser for the duration of the push (years for crewed mass)", earliest_year_proxy: 2160, gates_propulsion: true}
+    - {name: "Phase coherence over interstellar distance", description: "Laser must remain coherent enough to focus on the receding sail", earliest_year_proxy: 2180, gates_propulsion: true}
+  limitations:
+    - "Crewed mass ceiling: laser power scales linearly with sail mass × velocity-squared."
+    - "Cannot decelerate at destination without a receiving array. One-way only."
+    - "Lasing infrastructure is its own species of project."
+  sources:
+    - "Robert Forward, 'Roundtrip Interstellar Travel...' (1984); Philip Lubin DEEP-IN papers"
+
+# =================================================================
+- id: prop_mass_driver
+  max_velocity_c: 0.05
+  fuel:
+    type: "Magnetic acceleration of inert mass (lunar/asteroid origin)"
+    specific_impulse_s: 200000
+  critical_materials:
+    - {material: "Lunar/asteroidal regolith feedstock", kg_per_payload_ton: 100, source: "In-situ mining", scarcity_note: "Effectively unlimited; gates on mining scale"}
+    - {material: "Superconducting linear accelerator track", kg_per_payload_ton: 0, source: "Lunar surface infrastructure", scarcity_note: "Massive fixed cost"}
+  energy:
+    source: ground_side    # the mass-driver accelerates the mass, not the ship
+    peak_power_required_mw: 5000
+    onboard_reactor: none
+  infrastructure:
+    - {name: "Lunar mass-driver track (km-scale)", description: "Superconducting linear accelerator on lunar surface", earliest_year_proxy: 2150, gates_propulsion: true}
+    - {name: "Lunar power infrastructure (gigawatt+)", description: "Solar farm or compact fusion", earliest_year_proxy: 2120, gates_propulsion: true}
+  limitations:
+    - "G-loading on launched mass kills crew. Crewed direct-launch infeasible."
+    - "Useful for inert cargo, kinetic interceptors, or boosting sail-craft."
+  sources:
+    - "O'Neill High Frontier (1976); various 1980s-2010s mass-driver studies"
+
+# =================================================================
+- id: prop_antimatter_catalyzed
+  max_velocity_c: 0.15
+  fuel:
+    type: "Antimatter-catalyzed fission/fusion (µg antimatter + fission/fusion fuel)"
+    specific_impulse_s: 100000
+  critical_materials:
+    - {material: "Antimatter (antiprotons / positrons)", kg_per_payload_ton: 0.000006, source: "Particle accelerator production", scarcity_note: "BOTTLENECK — currently picograms total, need micrograms"}
+    - {material: "Fissile fuel (uranium-238 or thorium target)", kg_per_payload_ton: 30, source: "Standard nuclear industry", scarcity_note: "Available"}
+    - {material: "Penning trap storage system", kg_per_payload_ton: 20, source: "High-vacuum + superconducting magnets", scarcity_note: "No interstellar-duration storage demonstrated"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 50
+    onboard_reactor: power_fission_reactor
+  infrastructure:
+    - {name: "Antimatter production at microgram scale per year", description: "8 orders of magnitude above current capacity", earliest_year_proxy: 2160, gates_propulsion: true}
+    - {name: "Antimatter long-duration storage (Penning trap)", description: "Decades of containment with zero failures", earliest_year_proxy: 2130, gates_propulsion: true}
+  limitations:
+    - "Single Penning-trap failure = total mission loss + radiation event."
+    - "Antimatter production rate caps mission cadence."
+    - "Cruise speed 0.10-0.15c."
+  sources:
+    - "Penn State ICAN-II (1999-2000); Gerald Smith antimatter-catalyzed fusion concepts"
+
+# =================================================================
+- id: prop_antimatter_pure
+  max_velocity_c: 0.5
+  fuel:
+    type: "Pure matter-antimatter annihilation"
+    specific_impulse_s: 10000000
+  critical_materials:
+    - {material: "Antimatter (kilograms)", kg_per_payload_ton: 4, source: "Civilization-scale production", scarcity_note: "BOTTLENECK — 24 orders of magnitude above current capacity"}
+    - {material: "Penning trap storage (kg-scale)", kg_per_payload_ton: 100, source: "Superconductor + cryogenics", scarcity_note: "Mass-prohibitive; storage scales as antimatter mass"}
+    - {material: "Magnetic-nozzle materials", kg_per_payload_ton: 30, source: "Specialty", scarcity_note: "Tungsten-class refractories"}
+  energy:
+    source: self_powered
+    peak_power_required_mw: 1000
+    onboard_reactor: none
+  infrastructure:
+    - {name: "Antimatter production at kilogram scale per year", description: "Civilizational-tier infrastructure; no concrete roadmap", earliest_year_proxy: 2400, gates_propulsion: true}
+    - {name: "Antimatter long-duration storage at kg scale", description: "Storage system masses more than the antimatter itself by ~25x", earliest_year_proxy: 2350, gates_propulsion: true}
+  limitations:
+    - "Storage mass dominates — for kg of antimatter you carry tens of tons of trap hardware."
+    - "Storage failure = thermonuclear-class detonation. Containment is the open problem."
+    - "Cruise speed 0.3-0.5c plausible."
+  sources:
+    - "Frisbee, AIAA-2003-4696; Forward antimatter-rocket papers"
