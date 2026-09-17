@@ -1,0 +1,685 @@
+# Proxima Sim — Technology Availability Timeline
+#
+# Each technology has three projection years: pessimistic, likely, optimistic.
+# At runtime, the sim checks the chosen launch year against these:
+#   year < pessimistic        → tech unavailable; mission infeasible if required
+#   pessimistic <= year < likely → tech experimental; reliability_multiplier ~0.55 (high failure)
+#   likely <= year < optimistic  → tech mature; reliability_multiplier ~0.85 (typical drama)
+#   optimistic <= year < mature  → tech proven; reliability_multiplier ~0.95
+#   mature <= year             → reliability_multiplier 1.0 (failures are tail-risk only)
+#
+# Sources are real published designs, peer-reviewed papers, BIS/AIAA conference proposals,
+# NASA TM reports. Speculative items are marked. Year ranges reflect honest engineering
+# uncertainty, not hand-wave.
+#
+# Schema:
+#   id: stable slug
+#   name: human-readable
+#   category: propulsion | life_support | structural | power | cryogenics | shielding |
+#             computing | hydroponics | medical
+#   pessimistic_year: earliest plausible engineering availability (research-prototype level)
+#   likely_year: typical projection by mainstream forecasters
+#   optimistic_year: well-funded mature operational reality
+#   mature_year: ubiquitous, cheap, off-the-shelf
+#   sources: list of citations
+#   notes: caveats, failure modes, real constraints
+#   prereq: list of tech ids that must also be available (transitive)
+#
+# Curation date: 2026-04-27. Living document. Update as published roadmaps shift.
+
+version: 1
+
+technologies:
+
+# =================================================================
+# PROPULSION
+# =================================================================
+
+- id: prop_chemical
+  name: Chemical rocket (LOX/LH2 / methalox)
+  category: propulsion
+  pessimistic_year: 1957
+  likely_year: 1965
+  optimistic_year: 1970
+  mature_year: 1980
+  sources:
+    - "Saturn V (Apollo, 1969)"
+    - "SpaceX Raptor / Starship Methalox (operational 2024)"
+  notes: |
+    Delta-v ceiling ~10 km/s for cargo, ~14 km/s with multistage. Cannot reach interstellar
+    speeds (need 0.001c+ = 300 km/s). Useful only for Earth-orbit assembly and final braking
+    in destination system. NOT a generational-ship propulsion option, ever.
+  prereq: []
+
+- id: prop_ion_electric
+  name: Ion / Hall-effect electric thrusters
+  category: propulsion
+  pessimistic_year: 1998
+  likely_year: 2005
+  optimistic_year: 2015
+  mature_year: 2025
+  sources:
+    - "NASA Deep Space 1 (1998, NSTAR thruster)"
+    - "Dawn (2007, ion-propelled to Vesta and Ceres)"
+    - "BepiColombo (2018+, T6 ion thrusters)"
+  notes: |
+    Specific impulse 3000-9000 s. Thrust is tiny (~mN); needs years to reach high delta-v.
+    Practical for unmanned interplanetary, not interstellar within human lifetime.
+  prereq: [prop_chemical]
+
+- id: prop_nuclear_thermal
+  name: Nuclear-thermal rocket (NTR)
+  category: propulsion
+  pessimistic_year: 2030
+  likely_year: 2045
+  optimistic_year: 2060
+  mature_year: 2080
+  sources:
+    - "NASA NERVA program (1955-1972, ground tested, never flown)"
+    - "DRACO / DARPA-NASA (active 2024, in-space demo target ~2027)"
+  notes: |
+    Specific impulse ~900 s, ~2x chemical. Doubles delta-v; still not interstellar. Useful
+    for fast cargo within solar system. Treated as enabling tech for orbital assembly of
+    larger interstellar craft, not the propulsion of the craft itself.
+  prereq: [prop_chemical]
+
+- id: prop_nuclear_electric
+  name: Nuclear-electric (NEP) — fission reactor + electric thrusters
+  category: propulsion
+  pessimistic_year: 2080
+  likely_year: 2140
+  optimistic_year: 2200
+  mature_year: 2280
+  sources:
+    - "Project Prometheus (NASA, 2003-2005, cancelled)"
+    - "Multiple post-2020 SBIR studies"
+  notes: |
+    Reactor in 100s of kW class powers ion/Hall thrusters. Continuous low thrust over years.
+    Could reach 0.001c-0.005c interstellar cruise speeds (300-1500 km/s). Voyage to Proxima
+    ~800-4000 years. Generational scale only. Real constraint: reactor longevity over a
+    century-plus.
+  prereq: [prop_ion_electric, power_fission_reactor]
+
+- id: prop_solar_sail
+  name: Solar / laser sail (close-Sun deployment)
+  category: propulsion
+  pessimistic_year: 2030
+  likely_year: 2050
+  optimistic_year: 2080
+  mature_year: 2120
+  sources:
+    - "IKAROS (JAXA, 2010, first interplanetary solar sail)"
+    - "LightSail 2 (Planetary Society, 2019)"
+    - "Project Forward 1984 (Robert Forward, laser-sail interstellar concept)"
+    - "Breakthrough Starshot (2016+, 0.2c lightsail concept)"
+  notes: |
+    Solar sails: ~0.001c-0.01c achievable for small craft using close-Sun perihelion.
+    Laser sails: theoretically up to ~0.2c for gram-scale probes (Starshot). Generational
+    ships: not viable as primary — sails can't be scaled to 50,000-ton ships without
+    impossible laser arrays. Useful as auxiliary thrust or for unmanned scout swarms.
+  prereq: [structural_carbon_composite]
+
+- id: prop_fusion_pulse_daedalus
+  name: Fusion-pulse (Daedalus / Project Icarus class)
+  category: propulsion
+  pessimistic_year: 2080
+  likely_year: 2120
+  optimistic_year: 2150
+  mature_year: 2200
+  sources:
+    - "Project Daedalus (BIS, 1978) — D/He-3 fusion-pulse, 0.12c, 50,000 tons"
+    - "Project Icarus (2009-, modernized Daedalus)"
+    - "VARIES / Friedwardt Winterberg fusion drive proposals"
+  notes: |
+    Cruise speeds 0.05c-0.12c plausible. Voyage to Proxima 35-85 years — fast enough that
+    crews can survive without strict cryo-rotation. Hard requirements: He-3 fuel (lunar
+    mining or gas-giant skim), 50,000+ ton orbital assembly, fusion ignition reliability
+    over decades. Real bottleneck: He-3 supply infrastructure.
+  prereq: [power_fusion_dt, structural_carbon_composite, mining_he3]
+
+- id: prop_fusion_continuous
+  name: Continuous fusion drive (D-He3 magnetic confinement)
+  category: propulsion
+  pessimistic_year: 2100
+  likely_year: 2140
+  optimistic_year: 2170
+  mature_year: 2230
+  sources:
+    - "Bussard polywell concepts"
+    - "Princeton FRC (Field-Reversed Configuration) reactor research"
+    - "Eric Lerner focus fusion (speculative timeline)"
+  notes: |
+    Continuous thrust for years; smoother than pulse, fewer ignition events. Cruise 0.05-0.15c.
+    Speculative but better than pulse if the engineering matures. Not before 2100 honestly.
+  prereq: [power_fusion_dhe3, structural_carbon_nanotube]
+
+- id: prop_magsail_braking
+  name: Magnetic-sail braking (interstellar medium / destination star)
+  category: propulsion
+  pessimistic_year: 2090
+  likely_year: 2130
+  optimistic_year: 2160
+  mature_year: 2210
+  sources:
+    - "Robert Zubrin & Dana Andrews (1990s), Magsail concept"
+    - "Multiple modernizations 2010+"
+  notes: |
+    Decelerates a fast craft using interstellar plasma drag — critical for fusion-pulse
+    missions which can't carry symmetric braking fuel. Without magsail, fast missions fly
+    past their destination at 0.1c. Required pair tech for prop_fusion_pulse_daedalus.
+  prereq: [prop_fusion_pulse_daedalus]
+
+- id: prop_beam_rider
+  name: Beam-rider (Earth/lunar laser array → interstellar craft)
+  category: propulsion
+  pessimistic_year: 2120
+  likely_year: 2170
+  optimistic_year: 2220
+  mature_year: 2300
+  sources:
+    - "Robert Forward, 'Roundtrip Interstellar Travel Using Laser-Pushed Lightsails' (1984)"
+    - "Breakthrough Starshot scaled-up variants"
+    - "Philip Lubin (UCSB) directed-energy research"
+  notes: |
+    Earth-side gigawatt-to-petawatt laser pushes lightsail-equipped craft. No fuel mass on
+    the craft itself. Cruise speeds 0.1-0.3c possible. Catch: needs an Earth-system laser
+    array on the order of a small moon. Civilizational-scale infrastructure project.
+    Generational ships face a deceleration problem (no return beam at destination).
+  prereq: [structural_carbon_nanotube, power_solar_orbital_gigawatt]
+
+- id: prop_mass_driver
+  name: Mass-driver (kinetic-impactor cargo, sometimes proposed for crewed)
+  category: propulsion
+  pessimistic_year: 2080
+  likely_year: 2110
+  optimistic_year: 2150
+  mature_year: 2200
+  sources:
+    - "Gerard K. O'Neill, 'The High Frontier' (1976), lunar mass-driver"
+    - "Various 1980s-2010s solar-system mass-driver studies"
+  notes: |
+    Lunar/asteroid-based magnetic-acceleration launch tracks. Useful for boosting fast
+    interstellar probes or pushing kinetic interceptors. Direct-drive of a generational ship
+    is implausible (g-loading kills crew). Categorize as enabler, not primary propulsion.
+  prereq: [power_fusion_dt]
+
+- id: prop_antimatter_catalyzed
+  name: Antimatter-catalyzed fission/fusion (ICAN-II class)
+  category: propulsion
+  pessimistic_year: 2150
+  likely_year: 2200
+  optimistic_year: 2250
+  mature_year: 2350
+  sources:
+    - "Penn State ICAN-II proposals (1999-2000)"
+    - "Gerald Smith antimatter-catalyzed fusion concepts"
+  notes: |
+    Tiny amounts of antimatter (~µg) catalyze fusion reactions, drastically reducing fuel
+    mass. Real bottleneck: producing and storing antimatter at scales above nanograms (we
+    are stuck at ~picograms today). Production-rate growth is slow.
+  prereq: [power_antimatter_production_microgram]
+
+- id: prop_antimatter_pure
+  name: Pure antimatter-pilot (matter-antimatter annihilation drive)
+  category: propulsion
+  pessimistic_year: 2250
+  likely_year: 2350
+  optimistic_year: 2450
+  mature_year: 2600
+  sources:
+    - "Frisbee, AIAA-2003-4696, 'How to Build an Antimatter Rocket for Interstellar Missions'"
+  notes: |
+    Specific impulse 10^7 s. Cruise 0.3-0.5c. Civilizational-scale antimatter production
+    required (kilograms). Treat as far-future; many runs will not have this option even at
+    optimistic timing.
+  prereq: [power_antimatter_production_kilogram]
+
+# =================================================================
+# POWER
+# =================================================================
+
+- id: power_rtg
+  name: Radioisotope thermoelectric generator (RTG)
+  category: power
+  pessimistic_year: 1961
+  likely_year: 1965
+  optimistic_year: 1970
+  mature_year: 1980
+  sources:
+    - "Voyager 1/2 (1977, RTGs still operational 47+ years)"
+    - "Cassini, New Horizons, Curiosity, Perseverance"
+  notes: |
+    Reliable kilowatt-scale power for decades. Insufficient for ECLSS or propulsion of
+    a crewed ship. Useful for backup/instruments only.
+  prereq: []
+
+- id: power_fission_reactor
+  name: Compact fission reactor (kilopower / megawatt class)
+  category: power
+  pessimistic_year: 2030
+  likely_year: 2050
+  optimistic_year: 2070
+  mature_year: 2100
+  sources:
+    - "NASA Kilopower / KRUSTY (2018, demonstrated)"
+    - "DRACO reactor variants"
+  notes: |
+    1 kW to ~megawatt scale. Required for any prolonged crewed mission. Wear/refuel cycle
+    a challenge over 100+ year voyages.
+  prereq: [prop_chemical]
+
+- id: power_fusion_dt
+  name: D-T fusion reactor (deuterium-tritium)
+  category: power
+  pessimistic_year: 2055
+  likely_year: 2080
+  optimistic_year: 2110
+  mature_year: 2150
+  sources:
+    - "ITER (first plasma 2025-2030 target, Q>1 milestones 2035-2040)"
+    - "Commonwealth Fusion Systems SPARC (2025-2027 commissioning target)"
+  notes: |
+    Mainstream-likely fusion. Requires tritium breeding (limited resource). Less useful for
+    interstellar than D/He-3 because of neutron flux damage to ship structure.
+  prereq: [power_fission_reactor]
+
+- id: power_fusion_dhe3
+  name: D-He3 fusion reactor (aneutronic)
+  category: power
+  pessimistic_year: 2080
+  likely_year: 2120
+  optimistic_year: 2150
+  mature_year: 2200
+  sources:
+    - "Various long-term roadmaps; not mainstream-funded as of 2026"
+  notes: |
+    Aneutronic — much less neutron damage. Requires He-3 supply (lunar/gas-giant). Preferred
+    for interstellar drive. Real bottleneck is fuel supply, not reactor physics.
+  prereq: [power_fusion_dt, mining_he3]
+
+- id: power_solar_orbital_gigawatt
+  name: Orbital gigawatt+ solar arrays
+  category: power
+  pessimistic_year: 2070
+  likely_year: 2110
+  optimistic_year: 2160
+  mature_year: 2220
+  sources:
+    - "Various SPS (space-based solar power) concepts since 1968"
+  notes: |
+    Required infrastructure for laser-sail propulsion. Civilizational scale.
+  prereq: [structural_carbon_composite]
+
+- id: power_antimatter_production_microgram
+  name: Antimatter production at microgram scale
+  category: power
+  pessimistic_year: 2100
+  likely_year: 2160
+  optimistic_year: 2210
+  mature_year: 2280
+  sources:
+    - "Current capacity (CERN ALPHA, AEGIS): ~picograms total"
+    - "Optimistic projections in antimatter-propulsion literature"
+  notes: |
+    Storage in penning traps another challenge. Microgram era enables catalyzed-fusion
+    propulsion.
+  prereq: [power_fission_reactor]
+
+- id: power_antimatter_production_kilogram
+  name: Antimatter production at kilogram scale
+  category: power
+  pessimistic_year: 2300
+  likely_year: 2400
+  optimistic_year: 2500
+  mature_year: 2700
+  sources:
+    - "Civilizational-tier projection; no concrete roadmap"
+  notes: |
+    Pure antimatter propulsion. Speculative far-future.
+  prereq: [power_antimatter_production_microgram]
+
+- id: mining_he3
+  name: He-3 mining infrastructure (lunar regolith / Jupiter atmosphere)
+  category: power
+  pessimistic_year: 2070
+  likely_year: 2110
+  optimistic_year: 2150
+  mature_year: 2210
+  sources:
+    - "Lunar He-3 regolith concentration ~10 ppb, large-area extraction studies"
+    - "Saturn-skim concepts (e.g., Jupiter-He3 atmospheric collection, far-future)"
+  notes: |
+    He-3 supply caps fusion-pulse mission cadence. ~kg per mission, lunar yield modest.
+  prereq: [structural_carbon_composite]
+
+# =================================================================
+# LIFE SUPPORT
+# =================================================================
+
+- id: ls_open_loop
+  name: Open-loop life support (carry-everything)
+  category: life_support
+  pessimistic_year: 1961
+  likely_year: 1965
+  optimistic_year: 1970
+  mature_year: 1980
+  sources:
+    - "Mercury, Gemini, Apollo cabin systems"
+  notes: |
+    Mass scales linearly with crew × duration. Untenable beyond weeks for crewed flight.
+  prereq: []
+
+- id: ls_partial_closed
+  name: Partial closed-loop ECLSS (water + O2 ~50-70%)
+  category: life_support
+  pessimistic_year: 2000
+  likely_year: 2010
+  optimistic_year: 2020
+  mature_year: 2030
+  sources:
+    - "ISS ECLSS (operational since 2008-, water recovery ~74%)"
+    - "ISS Sabatier reactor (2010+)"
+  notes: |
+    Currently flying. Sufficient for months in LEO; not interstellar.
+  prereq: [prop_chemical]
+
+- id: ls_advanced_closed
+  name: Advanced closed-loop ECLSS (~90%+ recovery)
+  category: life_support
+  pessimistic_year: 2030
+  likely_year: 2050
+  optimistic_year: 2070
+  mature_year: 2090
+  sources:
+    - "MELiSSA (ESA, multi-decade development, target 99% closure)"
+    - "Mars-mission ECLSS roadmaps"
+  notes: |
+    Required for Mars-class missions and beyond. Multi-year duration tested in ground analogs.
+  prereq: [ls_partial_closed, hydroponics_space]
+
+- id: ls_biome_closed
+  name: Closed biome life support (multi-decade autonomous)
+  category: life_support
+  pessimistic_year: 2080
+  likely_year: 2130
+  optimistic_year: 2180
+  mature_year: 2240
+  sources:
+    - "Biosphere 2 (1991-1993, troubled but informative)"
+    - "MELiSSA Pilot Plant maturity by 2030s-2040s"
+    - "Aurora (Kim Stanley Robinson, 2015) — fictional 24-biome ship"
+  notes: |
+    Self-sustaining for centuries. Required for true generation ships. Hardest open problem
+    in interstellar engineering — Biosphere 2 failed at 2 years with 8 people; we extrapolate
+    to 1000 years with thousands.
+  prereq: [ls_advanced_closed, hydroponics_multidec]
+
+# =================================================================
+# HYDROPONICS
+# =================================================================
+
+- id: hydroponics_space
+  name: Space-validated hydroponic agriculture
+  category: hydroponics
+  pessimistic_year: 2025
+  likely_year: 2035
+  optimistic_year: 2045
+  mature_year: 2060
+  sources:
+    - "ISS Veggie / Advanced Plant Habitat (2014+, microgravity validated)"
+    - "Lunar Gateway agricultural module roadmaps"
+  notes: |
+    Yields 20-30 kg/m²/yr in optimal conditions. Requires LED lighting + CO2 + water + power.
+  prereq: [ls_partial_closed]
+
+- id: hydroponics_multidec
+  name: Multi-decade closed-loop hydroponics
+  category: hydroponics
+  pessimistic_year: 2070
+  likely_year: 2110
+  optimistic_year: 2150
+  mature_year: 2200
+  sources:
+    - "MELiSSA-anchored closure rates"
+    - "Ground analogs (BIOS-3 in Krasnoyarsk, partial closure decades-long)"
+  notes: |
+    Pest cycles, soil-medium degradation, genetic drift in plant populations all become
+    real over decades. The hard part is not 'grow food' but 'keep growing food without
+    intervention.'
+  prereq: [hydroponics_space]
+
+# =================================================================
+# CRYOGENICS / HIBERNATION
+# =================================================================
+
+- id: cryo_torpor_short
+  name: Therapeutic torpor (hours-to-days, induced hypothermia)
+  category: cryogenics
+  pessimistic_year: 2020
+  likely_year: 2025
+  optimistic_year: 2030
+  mature_year: 2040
+  sources:
+    - "Therapeutic hypothermia post-cardiac-arrest (clinical practice 2003-)"
+    - "SpaceWorks NASA Inspired Research torpor studies (2014+)"
+  notes: |
+    Existing clinical practice extended for short space durations. Not generation-ship cryo.
+  prereq: []
+
+- id: cryo_extended_partial
+  name: Extended partial cryosleep (months to years)
+  category: cryogenics
+  pessimistic_year: 2050
+  likely_year: 2080
+  optimistic_year: 2110
+  mature_year: 2150
+  sources:
+    - "SpaceWorks Mars-mission torpor concepts (2014+)"
+    - "Tardigrade cryptobiosis research adaptations (speculative)"
+  notes: |
+    Reduces life-support load during long voyages. Crew-rotation feasibility for 80-200 yr
+    missions. Reliability the open question.
+  prereq: [cryo_torpor_short, medical_regenerative_basic]
+
+- id: cryo_full_century
+  name: Full cryostasis (century+ reliable preservation)
+  category: cryogenics
+  pessimistic_year: 2120
+  likely_year: 2180
+  optimistic_year: 2250
+  mature_year: 2350
+  sources:
+    - "Vitrification + nanoscale ice-crystal control (speculative)"
+    - "ALCOR / Cryonics Institute current state-of-art (storage but not revival)"
+  notes: |
+    Real challenge: revival without cellular damage. Currently zero validated revivals at
+    scale. Speculative.
+  prereq: [cryo_extended_partial, medical_regenerative_advanced]
+
+# =================================================================
+# STRUCTURAL
+# =================================================================
+
+- id: structural_aluminum_steel
+  name: Aluminum / steel hull (current spaceframe materials)
+  category: structural
+  pessimistic_year: 1957
+  likely_year: 1965
+  optimistic_year: 1970
+  mature_year: 1980
+  sources:
+    - "Standard aerospace practice"
+  notes: |
+    Mass-prohibitive for very large vessels. Sufficient for current crewed spacecraft.
+  prereq: []
+
+- id: structural_carbon_composite
+  name: Carbon-fiber composite hull
+  category: structural
+  pessimistic_year: 1990
+  likely_year: 2005
+  optimistic_year: 2015
+  mature_year: 2030
+  sources:
+    - "F-22 (1997+), Boeing 787 (2011+), SpaceX Starship dry mass studies"
+  notes: |
+    Mainstream aerospace; usable for orbital habitats up to medium scale.
+  prereq: [structural_aluminum_steel]
+
+- id: structural_carbon_nanotube
+  name: Carbon-nanotube composite hull / tether
+  category: structural
+  pessimistic_year: 2050
+  likely_year: 2080
+  optimistic_year: 2120
+  mature_year: 2170
+  sources:
+    - "CNT macro-scale fabrication research (mid-2020s milestones small-scale)"
+    - "Space-elevator literature (Edwards-Westling 2003 for tether requirements)"
+  notes: |
+    Required for very large rotating habitats and space elevators. Macro-scale CNT
+    production stuck in research as of 2026.
+  prereq: [structural_carbon_composite]
+
+- id: structural_asteroid_hollow
+  name: Hollowed-asteroid habitat
+  category: structural
+  pessimistic_year: 2100
+  likely_year: 2150
+  optimistic_year: 2200
+  mature_year: 2300
+  sources:
+    - "Various asteroid-habitat concepts; Karl Schroeder, Kim Stanley Robinson novels"
+    - "Adam Frank, 'Light of the Stars' (2018) on long-duration civilizational structures"
+  notes: |
+    Spin-up + interior fit-out of a 1-10 km asteroid. Massive shielding bonus, massive
+    construction cost. Plausible only with mature mining/manufacturing in space.
+  prereq: [mining_asteroid, structural_carbon_nanotube]
+
+- id: mining_asteroid
+  name: Asteroid mining at industrial scale
+  category: structural
+  pessimistic_year: 2050
+  likely_year: 2090
+  optimistic_year: 2130
+  mature_year: 2180
+  sources:
+    - "Planetary Resources / Deep Space Industries (defunct, 2010s pioneers)"
+    - "Various academic studies; NASA OSIRIS-REx return as proof-of-touch (2023)"
+  notes: |
+    Required for off-Earth resource economy. Moves the cost curve for any large vessel.
+  prereq: [prop_nuclear_thermal]
+
+# =================================================================
+# RADIATION SHIELDING
+# =================================================================
+
+- id: shield_water_mass
+  name: Water / mass shielding
+  category: shielding
+  pessimistic_year: 2000
+  likely_year: 2010
+  optimistic_year: 2020
+  mature_year: 2030
+  sources:
+    - "ISS shielding practice; Mars-mission radiation research"
+  notes: |
+    Brute-force; mass-expensive but proven.
+  prereq: []
+
+- id: shield_active_magnetic
+  name: Active magnetic deflection (mini-magnetosphere)
+  category: shielding
+  pessimistic_year: 2080
+  likely_year: 2130
+  optimistic_year: 2180
+  mature_year: 2240
+  sources:
+    - "Bamford et al., RAL plasma-shield concept (2008)"
+    - "Various magsail-doubles-as-shield concepts"
+  notes: |
+    Plasma + magnetic field deflects galactic cosmic rays. Reduces shielding mass dramatically.
+    Untested at scale.
+  prereq: [power_fusion_dt]
+
+# =================================================================
+# COMPUTING / AI
+# =================================================================
+
+- id: ai_classical
+  name: Classical narrow AI (current)
+  category: computing
+  pessimistic_year: 2020
+  likely_year: 2024
+  optimistic_year: 2026
+  mature_year: 2030
+  sources:
+    - "Current LLM / agent-AI capability as of 2026"
+  notes: |
+    Sufficient for ship operations support, monitoring, narration. Cannot autonomously
+    redesign systems or invent solutions to novel problems.
+  prereq: []
+
+- id: ai_general
+  name: Artificial general intelligence (debated)
+  category: computing
+  pessimistic_year: 2035
+  likely_year: 2055
+  optimistic_year: 2080
+  mature_year: 2120
+  sources:
+    - "Survey of AI researchers (Müller & Bostrom 2014; AI Impacts 2022 update)"
+    - "Wide-uncertainty distributions"
+  notes: |
+    Disputed timing. If achieved, materially changes ship operations — AGI advisor at the
+    helm of every system. Sim plays both options.
+  prereq: [ai_classical]
+
+# =================================================================
+# MEDICAL
+# =================================================================
+
+- id: medical_current
+  name: Current biotech (gene editing CRISPR-tier)
+  category: medical
+  pessimistic_year: 2020
+  likely_year: 2025
+  optimistic_year: 2030
+  mature_year: 2040
+  sources:
+    - "CRISPR-Cas9 clinical use (2020+)"
+    - "mRNA platforms (2020+)"
+  notes: |
+    Sufficient for current Earth medicine. Limited shipboard surgery; specialist doctors
+    irreplaceable on long voyages.
+  prereq: []
+
+- id: medical_regenerative_basic
+  name: Regenerative tissue / organ printing
+  category: medical
+  pessimistic_year: 2035
+  likely_year: 2055
+  optimistic_year: 2075
+  mature_year: 2105
+  sources:
+    - "Bioprinting research (2020s pilots)"
+    - "Solid-organ-replacement timelines (mainstream estimates)"
+  notes: |
+    Reduces dependency on irreplaceable specialists. Crew can recover from injuries that
+    today would be terminal.
+  prereq: [medical_current]
+
+- id: medical_regenerative_advanced
+  name: Full regenerative medicine + longevity
+  category: medical
+  pessimistic_year: 2080
+  likely_year: 2130
+  optimistic_year: 2180
+  mature_year: 2240
+  sources:
+    - "Cellular reprogramming / Yamanaka factors (research 2023+)"
+    - "SENS Foundation longevity roadmap (de Grey, controversial)"
+  notes: |
+    Significantly extends reproductive window and reduces age-related mortality. Changes
+    population dynamics over generations.
+  prereq: [medical_regenerative_basic]

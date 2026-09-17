@@ -1,0 +1,387 @@
+# Proxima Sim — Curated Exoplanet Catalogue
+#
+# Hand-picked from NASA Exoplanet Archive entries with peer-reviewed confirmations,
+# focusing on habitable-zone candidates and named flagship targets within ~200 ly.
+#
+# Distances and parameters reflect best-published values as of 2024-2026 NASA Exoplanet
+# Archive snapshots and Habitable Exoplanets Catalog (HEC) updates. Where there's a range,
+# the median value is given; the `confidence` field flags how well-characterized the
+# planet's habitability is.
+#
+# Earth Similarity Index (ESI): 0-1 scale combining radius, density, escape velocity,
+# and surface temperature versus Earth. ESI >= 0.8 = strong Earth analog.
+#
+# Schema:
+#   id: stable slug
+#   name: official designation
+#   host_star: stellar host
+#   star_type: spectral class
+#   distance_ly: distance from Earth in light-years
+#   radius_earth: planet radius in Earth radii
+#   mass_earth: planet mass in Earth masses (estimated when not measured)
+#   eq_temp_k: equilibrium temperature in Kelvin (no atmosphere model)
+#   insolation: starlight flux relative to Earth (Earth = 1.0)
+#   esi: Earth Similarity Index
+#   discovered: discovery year
+#   habitability_tier: confirmed | strong_candidate | marginal | speculative
+#   tidal_locked: true/false (with confidence flag)
+#   notes: real caveats
+#
+# Tier definitions for the picker:
+#   approach: 4-8 ly  (close — single-generation voyages possible at 0.05c)
+#   reach: 8-20 ly    (medium — multi-generational at most plausible speeds)
+#   push: 20-50 ly    (far — many-generation commitment)
+#   hail_mary: 50-200 ly (extreme — civilization-scale)
+
+version: 1
+
+exoplanets:
+
+# =================================================================
+# APPROACH TIER (4-8 ly)
+# =================================================================
+
+- id: proxima_b
+  name: Proxima Centauri b
+  host_star: Proxima Centauri
+  star_type: M5.5V (red dwarf)
+  distance_ly: 4.24
+  radius_earth: 1.07
+  mass_earth: 1.07
+  eq_temp_k: 234
+  insolation: 0.65
+  esi: 0.87
+  discovered: 2016
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Frequent stellar flares from Proxima — radiation events"
+    - "Tidal locking — half-planet permanent night"
+    - "Atmosphere unconfirmed; could be stripped by flares"
+  notes: |
+    The closest exoplanet beyond our solar system. Discovered via radial velocity by ESO HARPS.
+    Sister-planet Proxima d (smaller, hotter) confirmed 2022. Proxima Centauri itself is part
+    of Alpha Centauri system, gravitationally bound to A and B (Sun-like stars).
+
+- id: barnard_b
+  name: Barnard b
+  host_star: Barnard's Star
+  star_type: M4V (red dwarf)
+  distance_ly: 5.96
+  radius_earth: 1.06
+  mass_earth: 0.37
+  eq_temp_k: 125
+  insolation: 0.04
+  esi: 0.46
+  discovered: 2024
+  habitability_tier: marginal
+  tidal_locked: true
+  hazards:
+    - "Surface too cold for liquid water without thick greenhouse atmosphere"
+    - "Tidal locking"
+  notes: |
+    Confirmed 2024 by ESPRESSO. Closer to its star than Mercury but Barnard's Star is dim.
+    Surface ~125K — frozen unless substantial greenhouse effect. Sub-Earth mass.
+
+- id: ross_128_b
+  name: Ross 128 b
+  host_star: Ross 128
+  star_type: M4V (red dwarf, quiet)
+  distance_ly: 11.03
+  radius_earth: 1.10
+  mass_earth: 1.40
+  eq_temp_k: 269
+  insolation: 1.38
+  esi: 0.86
+  discovered: 2017
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Slightly hotter than Earth — possibly Venus-like"
+    - "Inner edge of habitable zone"
+  notes: |
+    Discovered by ESO HARPS. Ross 128 is unusually quiet for an M-dwarf — much fewer flares
+    than Proxima — making this one of the best M-dwarf habitable candidates. Worth bumping
+    just outside the 8-ly approach tier given the quality.
+
+# =================================================================
+# REACH TIER (8-20 ly)
+# =================================================================
+
+- id: gliese_876_b_d
+  name: Gliese 876 system (b/c/d)
+  host_star: Gliese 876
+  star_type: M4V
+  distance_ly: 15.2
+  radius_earth: 0.0    # the inner planet d is rocky but VERY hot; b/c are gas giants
+  mass_earth: 6.83     # planet d
+  eq_temp_k: 651       # planet d, unhabitable — flag for system context
+  insolation: 32.0
+  esi: 0.34
+  discovered: 1998
+  habitability_tier: marginal
+  tidal_locked: true
+  hazards:
+    - "Inner planet d is hot super-Earth, gas giants outside"
+  notes: |
+    Multi-planet system. Included for stellar-system character: gas giants beyond d could
+    have moons in the habitable zone (speculative).
+
+- id: tau_ceti_e
+  name: Tau Ceti e
+  host_star: Tau Ceti
+  star_type: G8.5V (Sun-like)
+  distance_ly: 11.91
+  radius_earth: 1.81
+  mass_earth: 3.93
+  eq_temp_k: 308
+  insolation: 1.66
+  esi: 0.78
+  discovered: 2012
+  habitability_tier: strong_candidate
+  tidal_locked: false
+  hazards:
+    - "Inner edge of habitable zone — potentially Venus-like"
+    - "Tau Ceti has unusually heavy debris disk (3x Sun's), high impact rate"
+  notes: |
+    Around a Sun-like star — rare among nearby exoplanets. Larger than Earth (super-Earth
+    class). Tau Ceti's heavy debris disk is a mission hazard.
+
+- id: tau_ceti_f
+  name: Tau Ceti f
+  host_star: Tau Ceti
+  star_type: G8.5V (Sun-like)
+  distance_ly: 11.91
+  radius_earth: 1.86
+  mass_earth: 3.93
+  eq_temp_k: 184
+  insolation: 0.27
+  esi: 0.71
+  discovered: 2012
+  habitability_tier: strong_candidate
+  tidal_locked: false
+  hazards:
+    - "Outer edge of habitable zone — likely too cold without thick CO2 greenhouse"
+    - "Tau Ceti's debris disk impact rate"
+  notes: |
+    Outer companion to Tau Ceti e. Better orbital period (642 days). Cold surface but
+    plausible greenhouse-warming scenarios put it at habitable surface temps.
+
+- id: wolf_1061c
+  name: Wolf 1061 c
+  host_star: Wolf 1061
+  star_type: M3.5V (red dwarf)
+  distance_ly: 13.95
+  radius_earth: 1.66
+  mass_earth: 4.30
+  eq_temp_k: 251
+  insolation: 1.30
+  esi: 0.76
+  discovered: 2015
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Tidal locking"
+    - "M-dwarf flares (Wolf 1061 less active than Proxima)"
+  notes: |
+    Middle planet of three-planet system. Inside habitable zone. Wolf 1061 is among the
+    quieter nearby M-dwarfs.
+
+- id: gliese_667c_c
+  name: Gliese 667 Cc
+  host_star: Gliese 667 C
+  star_type: M1.5V (red dwarf, in triple system)
+  distance_ly: 23.62
+  radius_earth: 1.54
+  mass_earth: 3.81
+  eq_temp_k: 277
+  insolation: 0.88
+  esi: 0.84
+  discovered: 2011
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Triple-star system — complex radiation environment"
+    - "Tidal locking"
+  notes: |
+    Discovered via radial velocity. Planet sits in Gliese 667 C's habitable zone. The G/K
+    primary stars are far enough that they appear as bright points in C's sky, not heat sources.
+
+# =================================================================
+# PUSH TIER (20-50 ly)
+# =================================================================
+
+- id: trappist_1_e
+  name: TRAPPIST-1 e
+  host_star: TRAPPIST-1
+  star_type: M8V (ultracool dwarf)
+  distance_ly: 40.66
+  radius_earth: 0.92
+  mass_earth: 0.69
+  eq_temp_k: 251
+  insolation: 0.66
+  esi: 0.85
+  discovered: 2017
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "M-dwarf flares — frequent, severe radiation events"
+    - "Tidal locking"
+    - "TRAPPIST-1 is very young (~7.6 Gyr) — but extreme UV flux history"
+    - "Atmosphere unconfirmed; JWST observations ongoing"
+  notes: |
+    Fourth of seven planets in the TRAPPIST-1 system, all rocky, three in habitable zone.
+    TRAPPIST-1 is closer to Jupiter's size than Sun's. The compact system means strong
+    tidal interactions and intense flare exposure for all planets.
+
+- id: trappist_1_f
+  name: TRAPPIST-1 f
+  host_star: TRAPPIST-1
+  star_type: M8V
+  distance_ly: 40.66
+  radius_earth: 1.05
+  mass_earth: 1.04
+  eq_temp_k: 219
+  insolation: 0.38
+  esi: 0.68
+  discovered: 2017
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards: ["M-dwarf flares", "Tidal locking", "Outer edge of HZ — likely cold"]
+  notes: |
+    Outer habitable-zone companion to TRAPPIST-1 e. Likely water-rich.
+
+- id: trappist_1_g
+  name: TRAPPIST-1 g
+  host_star: TRAPPIST-1
+  star_type: M8V
+  distance_ly: 40.66
+  radius_earth: 1.15
+  mass_earth: 1.32
+  eq_temp_k: 199
+  insolation: 0.26
+  esi: 0.59
+  discovered: 2017
+  habitability_tier: marginal
+  tidal_locked: true
+  hazards: ["M-dwarf flares", "Tidal locking", "Cold equilibrium temperature"]
+
+- id: lhs_1140_b
+  name: LHS 1140 b
+  host_star: LHS 1140
+  star_type: M4.5V (quiet red dwarf)
+  distance_ly: 48.55
+  radius_earth: 1.43
+  mass_earth: 6.98
+  eq_temp_k: 230
+  insolation: 0.46
+  esi: 0.60
+  discovered: 2017
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards: ["High mass — strong gravity (~1.7g surface)", "Tidal locking"]
+  notes: |
+    Super-Earth in the habitable zone of a quiet M-dwarf. JWST 2024 detection of nitrogen-rich
+    atmosphere candidate. Water-world scenario plausible. High surface gravity is the main
+    crew-comfort issue.
+
+- id: kepler_1649c
+  name: Kepler-1649 c
+  host_star: Kepler-1649
+  star_type: M5V
+  distance_ly: 301
+  radius_earth: 1.06
+  mass_earth: 1.20
+  eq_temp_k: 234
+  insolation: 0.75
+  esi: 0.93
+  discovered: 2020
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards: ["M-dwarf flares", "Distance puts it in hail-mary tier"]
+  notes: |
+    Highest-ESI confirmed exoplanet. Nearly Earth-twin in radius and insolation. Distance is
+    the killer — 301 ly puts this firmly in hail-mary territory at any plausible speed.
+
+# =================================================================
+# HAIL MARY TIER (50-200 ly)
+# =================================================================
+
+- id: kepler_186f
+  name: Kepler-186 f
+  host_star: Kepler-186
+  star_type: M1V
+  distance_ly: 178.5
+  radius_earth: 1.17
+  mass_earth: 1.71  # estimated
+  eq_temp_k: 188
+  insolation: 0.32
+  esi: 0.61
+  discovered: 2014
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Outer edge of habitable zone — cold without strong greenhouse"
+    - "Distance — civilization-scale voyage"
+  notes: |
+    First Earth-radius planet found in habitable zone. Outer of five Kepler-186 planets.
+    Distance is the killer.
+
+- id: kepler_442b
+  name: Kepler-442 b
+  host_star: Kepler-442
+  star_type: K5V
+  distance_ly: 1206
+  radius_earth: 1.34
+  mass_earth: 2.36
+  eq_temp_k: 233
+  insolation: 0.70
+  esi: 0.84
+  discovered: 2015
+  habitability_tier: strong_candidate
+  tidal_locked: false
+  hazards: ["Distance — millennial voyage at any speed"]
+  notes: |
+    K-dwarf host (longer-lived than M-dwarfs, less flare risk). Strong habitability
+    indicators. Distance is prohibitive in any era we'd reasonably play.
+
+- id: toi_700_d
+  name: TOI-700 d
+  host_star: TOI-700
+  star_type: M2V
+  distance_ly: 101.4
+  radius_earth: 1.07
+  mass_earth: 1.72
+  eq_temp_k: 268
+  insolation: 0.86
+  esi: 0.93
+  discovered: 2020
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards: ["M-dwarf flares (TOI-700 quieter than Proxima)", "Distance"]
+  notes: |
+    First Earth-sized planet found by TESS in a habitable zone. 100+ ly is a heavy lift but
+    fits within a hail-mary mission with mature fusion-pulse propulsion.
+
+- id: k2_18_b
+  name: K2-18 b
+  host_star: K2-18
+  star_type: M2.5V
+  distance_ly: 124
+  radius_earth: 2.61
+  mass_earth: 8.63
+  eq_temp_k: 270
+  insolation: 1.01
+  esi: 0.73
+  discovered: 2015
+  habitability_tier: strong_candidate
+  tidal_locked: true
+  hazards:
+    - "Sub-Neptune — likely thick H2/He atmosphere; surface conditions uncertain"
+    - "JWST 2023 detected possible DMS biosignature, controversial"
+  notes: |
+    The 'water world?' candidate. JWST atmospheric studies suggest possible ocean beneath
+    H2 atmosphere. Surface gravity ~1.5g if rocky core. Higher uncertainty than smaller HZ
+    candidates but high public profile.
+
+# Solar-system destinations removed — Proxima Sim is interstellar-only by design.

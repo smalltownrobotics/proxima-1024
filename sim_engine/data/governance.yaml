@@ -1,0 +1,437 @@
+# Proxima Sim — Governance Types (data-driven)
+#
+# Each governance type is a stateful regime: legitimacy decays, pressure builds,
+# transitions fire when thresholds cross. The dynamic governance system reads this
+# file and applies the rates. Adding a new governance type = a YAML entry, no code.
+#
+# Schema:
+#   id: stable slug
+#   name: human-readable
+#   enforcement: how authority is enforced (ai_only | ai_with_human_oversight |
+#                  religious_authority | consensus | military | hereditary)
+#   legitimacy_decay_per_year: how fast pure-time decay erodes legitimacy (0..0.05)
+#                              (lower = more durable; AI ~0.001, hereditary ~0.025)
+#   pressure_build_rate: how quickly population grievance accumulates per unit of
+#                        morale-deficit (0..0.05)
+#   crisis_response_mult: multiplier on mortality-modifier under stress (1.0 = baseline,
+#                        <1.0 handles crises better, >1.0 worse)
+#   morale_baseline: additive offset applied to morale system's target value
+#   morale_volatility: multiplier on morale's tracking responsiveness (1.0 = baseline)
+#   transition_threshold: { legitimacy_below, pressure_above } — both must hold to transition
+#   typical_lifespan_years: literature-anchored average duration before transition
+#   transition_to: list of {to: <id>, weight: <float>} — probability distribution for
+#                  the next regime when transition fires
+#   special: optional dict of regime-specific properties (council_size, council_renewal_period,
+#            ai_legitimacy_decay, etc.)
+#   sources: real-world or literature references
+#   notes: caveats, failure modes, real constraints
+
+version: 1
+
+governance:
+
+# =================================================================
+- id: ai_assisted_council
+  name: AI-assisted council
+  enforcement: ai_with_human_oversight
+  legitimacy_decay_per_year: 0.004      # AI handles routine, council handles ethics; net moderate
+  pressure_build_rate: 0.012
+  crisis_response_mult: 0.85            # AI accelerates routine; council handles novel
+  morale_baseline: 4.0
+  morale_volatility: 0.85
+  transition_threshold:
+    legitimacy_below: 0.20
+    pressure_above: 0.70
+  typical_lifespan_years: 200            # designed for centuries
+  transition_to:
+    - {to: council, weight: 0.45}        # AI gets removed, council remains
+    - {to: military, weight: 0.20}       # crisis -> martial
+    - {to: theocracy, weight: 0.15}      # AI replaced with priest class
+    - {to: direct_democracy, weight: 0.20}
+  special:
+    ai_legitimacy_decay: 0.001           # AI legitimacy decays slowly (designed for stability)
+    council_legitimacy_decay: 0.005      # human councils drift, but renewal arrests it (was 0.012, too fast)
+    council_size_floor: 7
+    council_size_ceiling: 13
+    council_renewal_period_years: 25     # periodic membership refresh
+    council_renewal_legitimacy_bump: 0.20 # routine renewal restores ~25% of drift
+    council_renewal_volatility_spike: 0.04 # routine renewal: small bump, not crisis
+    failure_modes: [elite_drift, ai_alignment_drift, succession_crisis, ai_subversion]
+  sources:
+    - "AXIS pilot 2026-04-19 design + post-mortem"
+    - "Bostrom 'Superintelligence' (2014) governance chapter"
+    - "Kim Stanley Robinson 'Aurora' (2015) — fictional generation-ship AI hybrid"
+  notes: |
+    The default canonical governance for mixed_voluntary, mission_scientists, commercial_expedition
+    ethos. Designed for centuries-long stability. Failure modes: elite drift across generations,
+    AI alignment slippage, succession self-perpetuation, rare AI subversion. Black-swan scenarios
+    (mid-voyage discoveries, alien contact, arrival surprises) stress-test the council layer.
+
+# =================================================================
+- id: council
+  name: Council (rotating, deliberative)
+  enforcement: consensus
+  legitimacy_decay_per_year: 0.005
+  pressure_build_rate: 0.014
+  crisis_response_mult: 1.0
+  morale_baseline: 3.0
+  morale_volatility: 1.0
+  transition_threshold: { legitimacy_below: 0.25, pressure_above: 0.65 }
+  typical_lifespan_years: 80
+  transition_to:
+    - {to: ai_assisted_council, weight: 0.25}
+    - {to: military, weight: 0.20}
+    - {to: theocracy, weight: 0.20}
+    - {to: hereditary_captain, weight: 0.20}
+    - {to: direct_democracy, weight: 0.15}
+  special:
+    council_size_floor: 5
+    council_size_ceiling: 11
+    council_renewal_period_years: 8
+  sources:
+    - "Inglehart World Values Survey waves 5-7 (representative-democracy life satisfaction)"
+    - "Acemoglu & Robinson 'Why Nations Fail' (institutional persistence)"
+  notes: |
+    Standard deliberative council. Stable in calm conditions. Slows under stress (consensus delay).
+    Most generation-ship designs assume this as the human-only fallback.
+
+# =================================================================
+- id: theocracy
+  name: Theocracy
+  enforcement: religious_authority
+  legitimacy_decay_per_year: 0.004         # halved from 0.008 — Hutterite communities have lasted 500+yr; calibrated to ~250yr typical with renewals
+  pressure_build_rate: 0.008               # doctrinal frame buffers grievance even more than calibrated initially
+  crisis_response_mult: 1.05               # rigid, slow to adapt to novel
+  morale_baseline: 4.0
+  morale_volatility: 0.85
+  transition_threshold: { legitimacy_below: 0.15, pressure_above: 0.78 }
+  typical_lifespan_years: 250              # closed religious communities last long (Hutterite 500+)
+  transition_to:
+    # Religious societies historically transition to military or another religion
+    # MUCH more often than to AI-mediated regimes. Calibrated against post-Reformation
+    # European data + Iranian Republic + post-Khomeini Iran patterns.
+    - {to: council, weight: 0.20}
+    - {to: military, weight: 0.35}             # most common — religious-state fall to coups
+    - {to: hereditary_captain, weight: 0.20}    # religious-monarchy hybrid
+    - {to: schism, weight: 0.20}                # split into 2 theocracies (special pseudo-state)
+    - {to: personalist_autocracy, weight: 0.03}
+    - {to: ai_assisted_council, weight: 0.02}    # very rare; AI as 'oracle' replacement
+  special:
+    schism_resistance: 0.6                  # internal heretic suppression mechanism
+  sources:
+    - "Eaton & Mayer 1953 (Hutterite cohesion)"
+    - "Pew 2019 Religion's Relationship to Happiness"
+  notes: |
+    Doctrinal cohesion provides long-run stability but vulnerable to schisms and slow to adapt
+    to evolving conditions. AI augmentation (theocracy + AI as 'oracle') is a credible variant
+    that approximates ai_assisted_council in stability terms.
+
+# =================================================================
+- id: technocracy
+  name: Technocracy
+  enforcement: expert_authority
+  legitimacy_decay_per_year: 0.006
+  pressure_build_rate: 0.013
+  crisis_response_mult: 0.90
+  morale_baseline: -1.0                    # legitimacy doesn't translate to morale
+  morale_volatility: 0.95
+  transition_threshold: { legitimacy_below: 0.22, pressure_above: 0.65 }
+  typical_lifespan_years: 50               # historical caretaker governments rarely persist
+  transition_to:
+    - {to: council, weight: 0.40}
+    - {to: ai_assisted_council, weight: 0.30}
+    - {to: military, weight: 0.20}
+    - {to: direct_democracy, weight: 0.10}
+  sources:
+    - "Bertsou & Caramani 2022 (Italian Monti / Greek Christophilou cabinets)"
+    - "IMF Article IV reports on Eurozone technocratic interventions"
+  notes: |
+    Effective at technical crises but legitimacy never refreshes. Historically a transition
+    regime, not a stable end state.
+
+# =================================================================
+- id: hereditary_captain
+  name: Hereditary captain (dynastic)
+  enforcement: hereditary
+  legitimacy_decay_per_year: 0.020
+  pressure_build_rate: 0.018
+  crisis_response_mult: 1.00
+  morale_baseline: 1.0
+  morale_volatility: 1.20                 # succession-driven volatility
+  transition_threshold: { legitimacy_below: 0.20, pressure_above: 0.60 }
+  typical_lifespan_years: 60               # high variance; some dynasties last centuries, many crash
+  transition_to:
+    - {to: council, weight: 0.35}
+    - {to: military, weight: 0.30}
+    - {to: theocracy, weight: 0.20}
+    - {to: direct_democracy, weight: 0.15}
+  special:
+    succession_crisis_period_years: 25     # captain death/retirement triggers volatility
+    succession_crisis_pressure_spike: 0.20
+  sources:
+    - "Kokkonen & Sundell 2014 (medieval European succession-war frequency)"
+    - "Pitcairn Islanders 1789-1800 succession violence"
+  notes: |
+    Continuity-legitimacy in stable times, but succession crises elevate variance. Pitcairn
+    is the cautionary tale.
+
+# =================================================================
+- id: direct_democracy
+  name: Direct democracy
+  enforcement: consensus
+  legitimacy_decay_per_year: 0.005
+  pressure_build_rate: 0.014
+  crisis_response_mult: 1.10                # slow consensus under stress
+  morale_baseline: 4.0                       # autonomy premium
+  morale_volatility: 1.18
+  transition_threshold: { legitimacy_below: 0.22, pressure_above: 0.65 }
+  typical_lifespan_years: 70
+  transition_to:
+    - {to: council, weight: 0.40}
+    - {to: ai_assisted_council, weight: 0.20}
+    - {to: military, weight: 0.20}
+    - {to: hereditary_captain, weight: 0.10}
+    - {to: theocracy, weight: 0.10}
+  sources:
+    - "Frey & Stutzer 2000 J Happiness Studies (Swiss canton direct-democracy life satisfaction)"
+    - "Frey 2003 (cantonal autonomy crisis adaptation)"
+  notes: |
+    Best-suited for small ships (<500 crew) where genuine consensus is feasible. Above ~1000
+    crew the consensus mechanism breaks down and the regime tends to decay into representative
+    council or ai_assisted_council variants.
+
+# =================================================================
+- id: commune
+  name: Commune (egalitarian)
+  enforcement: consensus
+  legitimacy_decay_per_year: 0.004
+  pressure_build_rate: 0.011
+  crisis_response_mult: 0.95
+  morale_baseline: 6.0
+  morale_volatility: 0.92
+  transition_threshold: { legitimacy_below: 0.20, pressure_above: 0.70 }
+  typical_lifespan_years: 100              # kibbutz movement lasted 100+ yrs before privatization
+  transition_to:
+    - {to: council, weight: 0.50}
+    - {to: ai_assisted_council, weight: 0.20}
+    - {to: theocracy, weight: 0.10}
+    - {to: military, weight: 0.10}
+    - {to: hereditary_captain, weight: 0.10}
+  sources:
+    - "McCarty 2018 (Twin Oaks egalitarian community 50+ yrs)"
+    - "Federation of Egalitarian Communities surveys"
+    - "Berman 2000 / CEPR 2014 (kibbutz fertility + privatization)"
+  notes: |
+    Egalitarian decision-making is sustainable at small-to-mid scale (200-2000 crew). Larger
+    scale strains consensus.
+
+# =================================================================
+- id: military
+  name: Military (chain of command)
+  enforcement: military
+  legitimacy_decay_per_year: 0.012
+  pressure_build_rate: 0.020              # discipline costs accumulate
+  crisis_response_mult: 0.82
+  morale_baseline: -3.0
+  morale_volatility: 0.75
+  transition_threshold: { legitimacy_below: 0.20, pressure_above: 0.60 }
+  typical_lifespan_years: 40
+  transition_to:
+    - {to: council, weight: 0.50}
+    - {to: ai_assisted_council, weight: 0.20}
+    - {to: hereditary_captain, weight: 0.20}
+    - {to: theocracy, weight: 0.10}
+  sources:
+    - "Cassani 2021 / Cepaluni et al. 2022 (regime-type COVID excess-mortality)"
+    - "Alon et al. 2020 (authoritarian crisis response)"
+  notes: |
+    Best at acute crises but worst at long-haul morale. Often a transition regime after
+    civilian collapse.
+
+# =================================================================
+- id: personalist_autocracy
+  name: Personalist autocracy
+  enforcement: hereditary
+  legitimacy_decay_per_year: 0.014
+  pressure_build_rate: 0.016
+  crisis_response_mult: 0.92                # decisive but error-prone
+  morale_baseline: 2.0                       # cult-of-personality bonus during leader's life
+  morale_volatility: 1.30
+  transition_threshold: { legitimacy_below: 0.18, pressure_above: 0.65 }
+  typical_lifespan_years: 30                 # ~Castro 47yr; ~Nasser 14yr; ~Suharto 31yr; mean ~30
+  transition_to:
+    - {to: military, weight: 0.35}
+    - {to: hereditary_captain, weight: 0.20}
+    - {to: council, weight: 0.20}
+    - {to: single_party_state, weight: 0.15}
+    - {to: theocracy, weight: 0.10}
+  special:
+    succession_crisis_period_years: 30       # leader's death triggers existential crisis
+    succession_crisis_pressure_spike: 0.40
+  sources:
+    - "Polity IV / V-Dem 'personalist regime' coding"
+    - "Geddes Wright Frantz 'How Dictatorships Work' (2018)"
+    - "Castro 1959-2008; Nasser 1954-1970; Pinochet 1973-1990; Erdogan 2003-present"
+  notes: |
+    Charismatic individual rule. Different from hereditary in that succession is rarely
+    institutionalized — leader's death typically triggers regime crisis. High volatility on
+    morale (cult of personality during life, vacuum after). Often emerges from coup or
+    revolution.
+
+# =================================================================
+- id: single_party_state
+  name: Single-party / vanguard state
+  enforcement: expert_authority              # 'party cadre' functions as expert/political authority
+  legitimacy_decay_per_year: 0.006
+  pressure_build_rate: 0.013
+  crisis_response_mult: 0.88
+  morale_baseline: 1.0                       # ideological binding compensates for autonomy loss
+  morale_volatility: 0.90
+  transition_threshold: { legitimacy_below: 0.20, pressure_above: 0.70 }
+  typical_lifespan_years: 90                 # CCP 76yr+; USSR 74yr; Vietnam 50yr+
+  transition_to:
+    - {to: council, weight: 0.30}
+    - {to: ai_assisted_council, weight: 0.20}
+    - {to: military, weight: 0.20}
+    - {to: personalist_autocracy, weight: 0.20}
+    - {to: theocracy, weight: 0.10}
+  special:
+    party_renewal_period_years: 10           # party congress / leader rotation
+    party_renewal_legitimacy_bump: 0.10
+  sources:
+    - "Magaloni & Kricheli 2010 'Political Order and One-Party Rule' Annual Review of Pol Sci"
+    - "Brownlee 'Authoritarianism in an Age of Democratization' (2007)"
+    - "Svolik 'The Politics of Authoritarian Rule' (2012)"
+  notes: |
+    Vanguard party with monopoly on political activity. Distinct from theocracy (no religious
+    authority) and military (no command-rank structure). Stable when economic performance is
+    decent; collapses when ideology + delivery both fail (Soviet pattern).
+
+# =================================================================
+- id: lottocracy
+  name: Lottocracy / sortition
+  enforcement: consensus
+  legitimacy_decay_per_year: 0.004
+  pressure_build_rate: 0.010
+  crisis_response_mult: 1.05                 # slow novel-crisis response
+  morale_baseline: 4.0                       # autonomy + perceived fairness premium
+  morale_volatility: 1.00
+  transition_threshold: { legitimacy_below: 0.22, pressure_above: 0.65 }
+  typical_lifespan_years: 90                 # Athenian Boule ~140yr; modern reforms unproven
+  transition_to:
+    - {to: council, weight: 0.40}
+    - {to: ai_assisted_council, weight: 0.25}
+    - {to: direct_democracy, weight: 0.20}
+    - {to: military, weight: 0.10}
+    - {to: theocracy, weight: 0.05}
+  special:
+    council_size_floor: 11
+    council_size_ceiling: 25
+    council_renewal_period_years: 4          # short rotation prevents capture
+    council_renewal_legitimacy_bump: 0.12
+    council_renewal_volatility_spike: 0.02
+    council_legitimacy_decay: 0.004
+  sources:
+    - "Hansen 'The Athenian Democracy in the Age of Demosthenes' (1991)"
+    - "Irish Citizens' Assembly 2016-2018 (abortion); French Citizens' Climate Convention 2019-2020"
+    - "Van Reybrouck 'Against Elections' (2016)"
+    - "Bouricius & Schecter 'Sortition: An Idea Whose Time Has Come' (2019)"
+  notes: |
+    Random selection from eligible citizens. Resistant to elite drift (fresh cohorts each rotation),
+    but slow to coordinate novel responses. Plausible for utopian_commune or scientifically-literate
+    crews where citizen competence is high.
+
+# =================================================================
+- id: corporate_hierarchy
+  name: Corporate hierarchy / CEO-board
+  enforcement: hereditary                    # board succession is institutional-not-democratic
+  legitimacy_decay_per_year: 0.010
+  pressure_build_rate: 0.018                 # class stratification accumulates grievance fast
+  crisis_response_mult: 0.95
+  morale_baseline: -1.0                      # average morale; high for officers, low for indentured
+  morale_volatility: 1.10
+  transition_threshold: { legitimacy_below: 0.20, pressure_above: 0.55 }
+  typical_lifespan_years: 50                  # VOC 198yr; EIC 257yr (extreme outliers); Hudson Bay 354yr; mean ship-context ~50
+  transition_to:
+    - {to: council, weight: 0.35}
+    - {to: military, weight: 0.25}
+    - {to: hereditary_captain, weight: 0.20}
+    - {to: ai_assisted_council, weight: 0.15}
+    - {to: personalist_autocracy, weight: 0.05}
+  special:
+    board_election_period_years: 7
+    board_election_legitimacy_bump: 0.08
+    board_election_volatility_spike: 0.05
+  sources:
+    - "Stern 'The Company-State' (2011)"
+    - "Robins 'The Corporation That Changed the World' (2006) on EIC"
+    - "Boxer 'The Dutch Seaborne Empire' (1965) on VOC"
+  notes: |
+    Investor-controlled hierarchy with explicit class structure. Best fit for commercial_expedition
+    ethos. Class stratification builds grievance faster than other enforcement types. Historically
+    long-lived only with state backing; on a ship without external authority, lifespan is shorter.
+
+# =================================================================
+- id: federated_commune
+  name: Federated commune
+  enforcement: consensus
+  legitimacy_decay_per_year: 0.005
+  pressure_build_rate: 0.011
+  crisis_response_mult: 1.00
+  morale_baseline: 5.0
+  morale_volatility: 0.95
+  transition_threshold: { legitimacy_below: 0.18, pressure_above: 0.70 }
+  typical_lifespan_years: 110                 # kibbutz federation 100yr+; Rojava 12yr+; Twin Oaks/East Wind 50yr+
+  transition_to:
+    - {to: commune, weight: 0.35}              # consolidates back to single commune
+    - {to: council, weight: 0.30}
+    - {to: ai_assisted_council, weight: 0.15}
+    - {to: theocracy, weight: 0.10}
+    - {to: military, weight: 0.10}
+  special:
+    sub_unit_count_floor: 3
+    sub_unit_count_ceiling: 12
+    sub_unit_renewal_period_years: 12
+    sub_unit_renewal_legitimacy_bump: 0.12
+    sub_unit_renewal_volatility_spike: 0.04
+    schism_resistance: 0.85                    # already split — schisms are absorbed as new sub-units
+  sources:
+    - "Federation of Egalitarian Communities annual reports"
+    - "Kibbutz movement: Berman 2000, CEPR 2014"
+    - "Knapp et al 'Revolution in Rojava' (2016)"
+    - "Twin Oaks/East Wind cooperative documentation 1967-present"
+  notes: |
+    Multiple semi-autonomous sub-communities under shared umbrella governance. Highly schism-resistant
+    because grievance can typically be absorbed by spawning a new sub-unit. Coordination on
+    ship-wide decisions is slow but rarely fatal. Best fit for utopian_commune ethos at scale.
+
+# =================================================================
+- id: algorithmic_democracy
+  name: Algorithmic / continuous AI-mediated democracy
+  enforcement: ai_only
+  legitimacy_decay_per_year: 0.003            # stable baseline; AI mediates continuously
+  pressure_build_rate: 0.011
+  crisis_response_mult: 0.78                  # AI accelerates crisis decision-making
+  morale_baseline: 2.0                        # autonomy positive but distrust of AI partial offset
+  morale_volatility: 1.05
+  transition_threshold: { legitimacy_below: 0.18, pressure_above: 0.72 }
+  typical_lifespan_years: 250                  # speculative; designed for centuries
+  transition_to:
+    - {to: ai_assisted_council, weight: 0.40}  # add a human council back
+    - {to: direct_democracy, weight: 0.25}
+    - {to: council, weight: 0.20}
+    - {to: military, weight: 0.10}
+    - {to: theocracy, weight: 0.05}
+  special:
+    ai_legitimacy_decay: 0.001
+    failure_modes: [ai_alignment_drift, manipulation_via_preference_falsification, civic_disengagement]
+  sources:
+    - "Bostrom 'Superintelligence' (2014) governance chapter"
+    - "Susskind 'Future Politics' (2018)"
+    - "Lessig 'Code 2.0' (2006) on architecture-as-governance"
+    - "Argentinian DemocracyOS 2012-2015 (early continuous-voting platform)"
+  notes: |
+    Speculative. Pure AI-mediated continuous voting with no human council layer. Distinct from
+    ai_assisted_council in that human deliberation is replaced by AI preference-aggregation.
+    Vulnerabilities are around AI alignment drift, preference manipulation, and civic
+    disengagement (people stop caring because the AI decides). Plausible for late-2200s+ tech tier.

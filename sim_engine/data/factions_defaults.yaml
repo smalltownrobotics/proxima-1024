@@ -1,0 +1,124 @@
+# Proxima Sim — Faction starting defaults per ethos.
+#
+# Any ship departing has factions present from day 0. This file declares the default
+# faction breakdown for each ethos. Player can override at the social-stage of the
+# picker. The factions system reads this at initialization and then evolves the
+# factions over the voyage (drift, schism, merge).
+#
+# Schema:
+#   <ethos_id>:
+#     factions:
+#       - id: stable slug
+#         name: human-readable
+#         share: 0..1 of population (must sum ~1.0 across factions)
+#         intensity: 0..1 — how strongly members identify
+#         religious_alignment: id from religions registry, or null
+#         political_lean: -1 (collectivist) .. +1 (individualist)
+#         class_tier: 0..1 — economic/labor tier within ship
+#         alienation_baseline: 0..1 — how much this faction feels distinct from the whole
+#     initial_tension_matrix:  # pairwise tension 0..1; 0 = harmony, 1 = hostile
+#       <faction_a>:
+#         <faction_b>: <tension>
+
+version: 1
+
+defaults:
+
+  mixed_voluntary:
+    factions:
+      - {id: technical_class, name: "Technical class", share: 0.40, intensity: 0.45, political_lean: 0.10, class_tier: 0.65, alienation_baseline: 0.10}
+      - {id: working_class, name: "Working class", share: 0.40, intensity: 0.40, political_lean: -0.20, class_tier: 0.40, alienation_baseline: 0.20, religious_alignment: "ecumenical_practitioners"}
+      - {id: leadership, name: "Leadership cadre", share: 0.10, intensity: 0.65, political_lean: 0.20, class_tier: 0.85, alienation_baseline: 0.05}
+      - {id: youth, name: "Ship-born youth", share: 0.05, intensity: 0.30, political_lean: 0.0, class_tier: 0.45, alienation_baseline: 0.15}
+      - {id: latent_religious, name: "Latent religious minority", share: 0.05, intensity: 0.55, political_lean: -0.10, class_tier: 0.40, alienation_baseline: 0.30, religious_alignment: "syncretic_revival"}
+    initial_tension_matrix:
+      technical_class: {working_class: 0.20, leadership: 0.15, youth: 0.10}
+      working_class:   {technical_class: 0.20, leadership: 0.30, youth: 0.05}
+      leadership:      {technical_class: 0.15, working_class: 0.30, youth: 0.10}
+      youth:           {technical_class: 0.10, working_class: 0.05, leadership: 0.10}
+
+  mission_scientists:
+    factions:
+      - {id: senior_research, name: "Senior research", share: 0.20, intensity: 0.70, political_lean: 0.15, class_tier: 0.85, alienation_baseline: 0.05}
+      - {id: junior_research, name: "Junior research / postdocs", share: 0.38, intensity: 0.55, political_lean: 0.10, class_tier: 0.60, alienation_baseline: 0.15}
+      - {id: technical_support, name: "Technical support", share: 0.28, intensity: 0.40, political_lean: -0.05, class_tier: 0.45, alienation_baseline: 0.20, religious_alignment: "personal_faith"}
+      - {id: command, name: "Mission command", share: 0.10, intensity: 0.75, political_lean: 0.20, class_tier: 0.90, alienation_baseline: 0.10}
+      - {id: latent_religious, name: "Latent spiritualists", share: 0.04, intensity: 0.45, political_lean: -0.10, class_tier: 0.40, alienation_baseline: 0.35, religious_alignment: "syncretic_revival"}
+    initial_tension_matrix:
+      senior_research:   {junior_research: 0.15, technical_support: 0.20, command: 0.10}
+      junior_research:   {senior_research: 0.15, technical_support: 0.10, command: 0.20}
+      technical_support: {senior_research: 0.20, junior_research: 0.10, command: 0.25}
+      command:           {senior_research: 0.10, junior_research: 0.20, technical_support: 0.25}
+
+  religious_refugees:
+    factions:
+      - {id: orthodox, name: "Orthodox observants", share: 0.55, intensity: 0.85, political_lean: -0.10, class_tier: 0.50, alienation_baseline: 0.05}
+      - {id: reformed, name: "Reformed observants", share: 0.30, intensity: 0.55, political_lean: 0.0, class_tier: 0.55, alienation_baseline: 0.15}
+      - {id: clergy, name: "Clergy / spiritual authority", share: 0.10, intensity: 0.95, political_lean: 0.05, class_tier: 0.75, alienation_baseline: 0.0}
+      - {id: secular_minority, name: "Secular minority", share: 0.05, intensity: 0.30, political_lean: 0.20, class_tier: 0.55, alienation_baseline: 0.45}
+    initial_tension_matrix:
+      orthodox:         {reformed: 0.25, clergy: 0.05, secular_minority: 0.55}
+      reformed:         {orthodox: 0.25, clergy: 0.20, secular_minority: 0.30}
+      clergy:           {orthodox: 0.05, reformed: 0.20, secular_minority: 0.50}
+      secular_minority: {orthodox: 0.55, reformed: 0.30, clergy: 0.50}
+
+  exiled_political_faction:
+    factions:
+      - {id: original_exiles, name: "Original exiles (founders)", share: 0.45, intensity: 0.85, political_lean: -0.30, class_tier: 0.55, alienation_baseline: 0.55}
+      - {id: sympathizers, name: "Sympathizers / fellow travelers", share: 0.30, intensity: 0.55, political_lean: -0.15, class_tier: 0.50, alienation_baseline: 0.35}
+      - {id: opportunists, name: "Opportunists", share: 0.15, intensity: 0.30, political_lean: 0.20, class_tier: 0.45, alienation_baseline: 0.30}
+      - {id: ship_born, name: "Ship-born descendants", share: 0.10, intensity: 0.20, political_lean: 0.0, class_tier: 0.40, alienation_baseline: 0.40}
+    initial_tension_matrix:
+      original_exiles: {sympathizers: 0.15, opportunists: 0.50, ship_born: 0.20}
+      sympathizers:    {original_exiles: 0.15, opportunists: 0.35, ship_born: 0.15}
+      opportunists:    {original_exiles: 0.50, sympathizers: 0.35, ship_born: 0.20}
+      ship_born:       {original_exiles: 0.20, sympathizers: 0.15, opportunists: 0.20}
+
+  commercial_expedition:
+    factions:
+      - {id: investors, name: "Investor class / shareholders", share: 0.05, intensity: 0.75, political_lean: 0.50, class_tier: 0.95, alienation_baseline: 0.30}
+      - {id: officers, name: "Officers / professional staff", share: 0.25, intensity: 0.50, political_lean: 0.30, class_tier: 0.70, alienation_baseline: 0.10}
+      - {id: contracted_workers, name: "Contracted workers", share: 0.50, intensity: 0.40, political_lean: -0.10, class_tier: 0.40, alienation_baseline: 0.25}
+      - {id: indentured, name: "Indentured / debt-bound", share: 0.15, intensity: 0.35, political_lean: -0.40, class_tier: 0.20, alienation_baseline: 0.55, religious_alignment: "popular_christianity"}
+      - {id: latent_religious, name: "Latent religious minority", share: 0.05, intensity: 0.50, political_lean: -0.20, class_tier: 0.35, alienation_baseline: 0.40, religious_alignment: "syncretic_revival"}
+    initial_tension_matrix:
+      investors:          {officers: 0.20, contracted_workers: 0.45, indentured: 0.65}
+      officers:           {investors: 0.20, contracted_workers: 0.30, indentured: 0.40}
+      contracted_workers: {investors: 0.45, officers: 0.30, indentured: 0.25}
+      indentured:         {investors: 0.65, officers: 0.40, contracted_workers: 0.25}
+
+  last_of_earth_survivors:
+    factions:
+      - {id: trauma_bonded, name: "Trauma-bonded core", share: 0.55, intensity: 0.80, political_lean: 0.0, class_tier: 0.50, alienation_baseline: 0.10}
+      - {id: rebuild_focused, name: "Rebuild-focused pragmatists", share: 0.25, intensity: 0.65, political_lean: 0.15, class_tier: 0.60, alienation_baseline: 0.20}
+      - {id: grief_struck, name: "Grief-struck withdrawn", share: 0.15, intensity: 0.40, political_lean: -0.20, class_tier: 0.40, alienation_baseline: 0.55}
+      - {id: ship_born, name: "Ship-born", share: 0.05, intensity: 0.20, political_lean: 0.0, class_tier: 0.45, alienation_baseline: 0.30}
+    initial_tension_matrix:
+      trauma_bonded:    {rebuild_focused: 0.20, grief_struck: 0.30, ship_born: 0.25}
+      rebuild_focused:  {trauma_bonded: 0.20, grief_struck: 0.40, ship_born: 0.15}
+      grief_struck:     {trauma_bonded: 0.30, rebuild_focused: 0.40, ship_born: 0.30}
+      ship_born:        {trauma_bonded: 0.25, rebuild_focused: 0.15, grief_struck: 0.30}
+
+  utopian_commune:
+    factions:
+      - {id: founding_visionaries, name: "Founding visionaries", share: 0.20, intensity: 0.85, political_lean: -0.30, class_tier: 0.55, alienation_baseline: 0.05}
+      - {id: cooperative_core, name: "Cooperative core", share: 0.55, intensity: 0.65, political_lean: -0.20, class_tier: 0.50, alienation_baseline: 0.10}
+      - {id: skeptics, name: "Skeptics / pragmatists", share: 0.20, intensity: 0.40, political_lean: 0.10, class_tier: 0.50, alienation_baseline: 0.30}
+      - {id: ship_born, name: "Ship-born next gen", share: 0.05, intensity: 0.30, political_lean: 0.0, class_tier: 0.45, alienation_baseline: 0.20}
+    initial_tension_matrix:
+      founding_visionaries: {cooperative_core: 0.10, skeptics: 0.40, ship_born: 0.15}
+      cooperative_core:     {founding_visionaries: 0.10, skeptics: 0.30, ship_born: 0.10}
+      skeptics:             {founding_visionaries: 0.40, cooperative_core: 0.30, ship_born: 0.20}
+      ship_born:            {founding_visionaries: 0.15, cooperative_core: 0.10, skeptics: 0.20}
+
+  military_garrison:
+    factions:
+      - {id: officer_corps, name: "Officer corps", share: 0.10, intensity: 0.85, political_lean: 0.20, class_tier: 0.85, alienation_baseline: 0.05}
+      - {id: nco_class, name: "Non-commissioned officers", share: 0.20, intensity: 0.70, political_lean: 0.10, class_tier: 0.60, alienation_baseline: 0.10}
+      - {id: enlisted, name: "Enlisted ranks", share: 0.55, intensity: 0.50, political_lean: -0.05, class_tier: 0.40, alienation_baseline: 0.20}
+      - {id: civilian_specialists, name: "Civilian specialists", share: 0.15, intensity: 0.40, political_lean: 0.05, class_tier: 0.55, alienation_baseline: 0.35}
+    initial_tension_matrix:
+      officer_corps:        {nco_class: 0.15, enlisted: 0.30, civilian_specialists: 0.40}
+      nco_class:            {officer_corps: 0.15, enlisted: 0.10, civilian_specialists: 0.25}
+      enlisted:             {officer_corps: 0.30, nco_class: 0.10, civilian_specialists: 0.15}
+      civilian_specialists: {officer_corps: 0.40, nco_class: 0.25, enlisted: 0.15}

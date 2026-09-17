@@ -1,0 +1,191 @@
+# Proxima Sim — Emergent Event Templates.
+#
+# These are GENERIC event templates. Each fires when its trigger conditions are
+# satisfied. Conditions are arbitrary boolean expressions over world.state.
+# When fired, the event picks a faction (or pair) as protagonist using a selector,
+# then applies typed effects scaled by the conditions that fired it.
+#
+# This is the layer that produces emergent narratives like 'reformed faction
+# radicalized in year 87 after sustained food adequacy below 0.85' WITHOUT us
+# scripting that specific story.
+#
+# Schema:
+#   id: stable slug
+#   kind: schism | mutiny | sect_radicalization | mass_casualty | faction_split
+#         | governance_revolt | religious_fusion | generational_revolt
+#   trigger:
+#     when: boolean expression over world.state (compiled at load time)
+#     min_years_since_last: cooldown
+#   protagonist_selector:
+#     kind: 'faction_with_max' | 'faction_with_min' | 'pair_with_max_tension'
+#     metric: e.g. 'intensity' | 'alienation' | 'tension'
+#     filter: optional sub-condition on candidates
+#   effects: typed Effect list (scaled by trigger severity)
+#   anchored_in: real-world reference for this kind of event
+
+version: 1
+
+events:
+
+  - id: religious_schism
+    kind: schism
+    trigger:
+      when: "factions.<f>.intensity > 0.55 AND factions.<f>.share > 0.25 AND governance.legitimacy < 0.55"
+      min_years_since_last: 25
+    protagonist_selector:
+      kind: faction_with_max
+      metric: intensity
+      filter: "religious_alignment != null AND alienation > 0.2"
+    effects:
+      - {path: "factions.<f>.share", op: mul, value: 0.7}
+      - {path: "religion.factions.<new_sect>.share", op: set, value: "<faction.share * 0.3>"}
+      - {path: "governance.pressure", op: add, value: 0.15}
+      - {path: "morale.aggregate", op: add, value: -8}
+    anchored_in: "Mennonite Schleitheim Confession 1527; Old Order Amish split 1693; Reform Judaism break 1818-1880; Hutterite Lehrerleut/Dariusleut 1877"
+
+  - id: sect_radicalization
+    kind: sect_radicalization
+    trigger:
+      when: "factions.<f>.intensity > 0.65 AND factions.<f>.alienation > 0.45 AND morale.aggregate < 50"
+      min_years_since_last: 40
+    protagonist_selector:
+      kind: faction_with_max
+      metric: alienation
+      filter: "intensity > 0.65"
+    effects:
+      - {path: "factions.<f>.intensity", op: set_if_higher, value: 0.95}
+      - {path: "factions.<f>.alienation", op: set_if_higher, value: 0.85}
+      - {path: "tension.<f>.<all_others>", op: add, value: 0.20}
+      - {path: "governance.pressure", op: add, value: 0.10}
+    anchored_in: "Branch Davidians 1981-1993; Order of the Solar Temple 1984-1997; Aum Shinrikyo 1984-1995; People's Temple 1955-1978"
+
+  - id: mutiny
+    kind: mutiny
+    trigger:
+      when: "morale.aggregate < 35 AND governance.legitimacy < 0.40 AND population.deaths_year > population.alive * 0.03"
+      min_years_since_last: 50
+    protagonist_selector:
+      kind: faction_with_max
+      metric: alienation
+      filter: "share > 0.15"
+    effects:
+      - {path: "governance.legitimacy", op: mul, value: 0.5}
+      - {path: "governance.pressure", op: set_if_higher, value: 0.95}
+      - {path: "population.deaths_year", op: add, value: "<faction.share * population.alive * 0.03>"}
+      - {path: "morale.aggregate", op: add, value: -15}
+    anchored_in: "HMS Bounty 1789; Potemkin 1905; Kronstadt rebellion 1921; Invergordon 1931; USS Wahoo crew uprising rumors 1942"
+
+  - id: mass_casualty
+    kind: mass_casualty
+    trigger:
+      when: "tension.max_pair > 0.65 AND morale.aggregate < 40 AND governance.legitimacy < 0.45"
+      min_years_since_last: 60
+    protagonist_selector:
+      kind: pair_with_max_tension
+    effects:
+      - {path: "population.deaths_year", op: add, value: "<min(faction_a.share, faction_b.share) * population.alive * 0.08>"}
+      - {path: "tension.<a>.<b>", op: set_if_higher, value: 0.95}
+      - {path: "governance.legitimacy", op: mul, value: 0.4}
+      - {path: "morale.aggregate", op: add, value: -20}
+    anchored_in: "St. Bartholomew's Day Massacre 1572; Thirty Years' War civilian violence 1618-1648; Rwandan genocide 1994 (cohort-on-cohort dynamics)"
+
+  - id: faction_split
+    kind: faction_split
+    trigger:
+      when: "factions.<f>.share > 0.40 AND factions.<f>.alienation > 0.35 AND population.generations_count > 3"
+      min_years_since_last: 80
+    protagonist_selector:
+      kind: faction_with_max
+      metric: share
+      filter: "share > 0.40"
+    effects:
+      - {path: "factions.<f>.share", op: mul, value: 0.7}
+      - {path: "factions.<f_split>.share", op: set, value: "<faction.share * 0.3>"}
+      - {path: "tension.<f>.<f_split>", op: set, value: 0.50}
+    anchored_in: "Orthodox/Reform Jewish split 19th c; Hutterite Schmiedeleut/Lehrerleut/Dariusleut split 1859-1877; multiple Anabaptist subdivisions"
+
+  - id: generational_revolt
+    kind: generational_revolt
+    trigger:
+      when: "population.generations_count >= 3 AND factions.ship_born.share > 0.35 AND factions.ship_born.alienation > 0.50"
+      min_years_since_last: 100
+    protagonist_selector:
+      kind: faction_with_max
+      metric: alienation
+      filter: "id == 'ship_born' OR id == 'youth'"
+    effects:
+      - {path: "governance.legitimacy", op: mul, value: 0.6}
+      - {path: "governance.pressure", op: add, value: 0.30}
+      - {path: "factions.ship_born.intensity", op: set_if_higher, value: 0.85}
+      - {path: "morale.aggregate", op: add, value: -10}
+    anchored_in: "1968 global youth movements; American Revolution generational tension; Khmer Rouge Year Zero (extreme case)"
+
+  - id: religious_fusion
+    kind: religious_fusion
+    trigger:
+      when: "morale.aggregate > 70 AND tension.max_pair < 0.20 AND population.generations_count >= 4"
+      min_years_since_last: 150
+    protagonist_selector:
+      kind: pair_with_max_tension     # ironically, the most-tense pair fuses to resolve the tension
+      filter: "religious_alignment_a != religious_alignment_b"
+    effects:
+      - {path: "religion.factions.<merged_id>.share", op: set, value: "<a.share + b.share>"}
+      - {path: "religion.factions.<a>.share", op: set, value: 0}
+      - {path: "religion.factions.<b>.share", op: set, value: 0}
+      - {path: "morale.aggregate", op: add, value: 5}
+    anchored_in: "Sikhism 15th c (Hindu-Islamic fusion); Caribbean Vodou (West African + Catholicism); Brazilian Candomblé"
+
+  - id: succession_violence
+    kind: governance_revolt
+    trigger:
+      when: "governance.type == 'hereditary_captain' AND governance.years_in_power > 25 AND governance.pressure > 0.6"
+      min_years_since_last: 30
+    protagonist_selector:
+      kind: faction_with_max
+      metric: alienation
+    effects:
+      - {path: "governance.legitimacy", op: mul, value: 0.3}
+      - {path: "governance.pressure", op: set_if_higher, value: 0.95}
+      - {path: "population.deaths_year", op: add, value: "<population.alive * 0.005>"}
+    anchored_in: "Wars of the Roses 1455-1487; Ottoman fratricide policy 1389-1648; Pitcairn Islanders 1789-1800"
+
+  # Crisis-fork events: high-mortality shocks bifurcate by societal religiosity.
+  # In a secular society, the shock triggers religious emergence (people seek
+  # meaning structure). In a religious society, the shock triggers political revolt
+  # against the existing religious authority (people blame the priests).
+  # See Bentzen 2019 (JEBO), Norris & Inglehart 2004, Sibley & Bulbulia 2012, TMT.
+
+  - id: religious_emergence
+    kind: religious_emergence
+    trigger:
+      # Fires on either an acute shock (single bad year) or sustained suffering (low morale,
+      # already-elevated alienation). Both empirically produce religious revivals.
+      when: "(population.deaths_year > population.alive * 0.02 OR morale.aggregate < 30) AND governance.type != 'theocracy' AND governance.type != 'commune'"
+      min_years_since_last: 60
+    protagonist_selector:
+      kind: faction_with_min
+      metric: share
+      filter: "religious_alignment != null"
+    effects:
+      - {path: "factions.<f>.share", op: mul, value: 2.5}
+      - {path: "factions.<f>.intensity", op: set_if_higher, value: 0.80}
+      - {path: "factions.<f>.alienation", op: mul, value: 0.6}
+      - {path: "morale.aggregate", op: add, value: 4}
+      - {path: "governance.pressure", op: add, value: 0.10}
+    anchored_in: "Bentzen 2019 'In Crisis, We Pray' (JEBO); Norris & Inglehart 2004 existential security theory; Sibley & Bulbulia 2012 (Christchurch earthquake); Pyszczynski TMT; 1918 flu Pentecostal revival; Black Death flagellants"
+
+  - id: religious_revolt
+    kind: governance_revolt
+    trigger:
+      when: "(population.deaths_year > population.alive * 0.025 OR morale.aggregate < 30) AND governance.type == 'theocracy'"
+      min_years_since_last: 60
+    protagonist_selector:
+      kind: faction_with_max
+      metric: alienation
+      filter: "alienation > 0.5"
+    effects:
+      - {path: "governance.legitimacy", op: mul, value: 0.4}
+      - {path: "governance.pressure", op: set_if_higher, value: 0.85}
+      - {path: "factions.<f>.intensity", op: set_if_higher, value: 0.80}
+      - {path: "morale.aggregate", op: add, value: -8}
+    anchored_in: "Reformation as response to Black Death theology failure; Spanish anticlerical violence 1830s/1930s; Iranian 1979 (inverse case — religious revolt against secular shah); Russian Orthodox suppression 1917-1922"
