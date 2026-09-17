@@ -1,0 +1,10 @@
+{
+  "name": "proxima-1024",
+  "private": true,
+  "version": "2.0.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {"build": "esbuild visual-scene.js --bundle --format=esm --minify --outfile=public/scene.js"},
+  "dependencies": {"three": "0.186.0"},
+  "devDependencies": {"esbuild": "0.28.2"}
+}
