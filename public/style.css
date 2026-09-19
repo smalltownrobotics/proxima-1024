@@ -29,6 +29,14 @@ dialog{background:var(--panel);color:var(--paper);border:1px solid var(--rule);p
 .resume-row{top:112px}
 @media(max-width:700px){.wizard #scene{left:0}.resume-row{top:86px}.resume-row button{font-size:8px;background:#07131be6}}
 .range-note{font-size:14px;color:var(--muted);line-height:1.4;margin-top:20px}
+
+/* Manifest: the engine supports 50,000 founders; exact input and presets keep that range usable. */
+.crew-control input[type=number]{box-sizing:border-box;width:100%;margin:11px 0 6px;padding:10px 13px;border:1px solid var(--rule);background:var(--ink);color:var(--paper);font:24px var(--mono);font-variant-numeric:tabular-nums}
+.crew-control input[type=number]:focus{outline:2px solid var(--cyan);outline-offset:2px}
+.crew-presets{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.crew-presets button{border:1px solid var(--rule);padding:7px 10px;font:11px var(--mono);color:var(--muted)}
+.crew-presets button[aria-pressed=true]{border-color:var(--cyan);color:var(--cyan);background:var(--panel2)}
+.crew-control .range-note{display:block;margin-top:11px;font-size:12px}
 @media(max-height:800px) and (min-width:901px){.response-hud{padding:12px 20px}.computation{margin:8px 0 12px}.computation strong{font-size:34px}.dist-row{margin:9px 0}.dist-track{height:5px;margin-top:5px}.ship-barriers{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;padding-top:11px;margin-top:14px}.barrier-row{display:block;font-size:8px;margin:0}.barrier-row b{display:block;font-size:12px;margin-top:3px}.evidence-link{margin-top:5px;font-size:9px}}
 @media(max-width:700px){#field-count{display:block}.jev-heading>span{display:block;margin-top:3px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important}}

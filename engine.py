@@ -23,6 +23,8 @@ SIM_ENGINE = ROOT / "sim_engine"
 sys.path.insert(0, str(SIM_ENGINE))
 from run_v2 import build_registry
 from framework import build_world, Orchestrator, Event, Effect
+import life_history
+from systems_v2.population import apply_death as _pop_apply_death, recount as _pop_recount, trim_founders as _pop_trim_founders
 
 # === Catalog and ship diagram contract ===
 DATA = ROOT / "data"
@@ -92,8 +94,11 @@ def make_config(options, variant=0):
     if drive["id"] not in ship["compatible_propulsion"]:
         raise ValueError("That propulsion system cannot support this ship class.")
     n = int(options.get("crew", 1024))
-    if not max(200, ship["min_crew"]) <= n <= min(1200, ship["max_crew"]):
-        raise ValueError("Choose a founding crew inside the displayed ship limits.")
+    # Founding crews range from the architecture minimum to 50,000. Catalog
+    # max_crew describes a nominal configuration, not a hard manifest cap;
+    # hull capacity values scale with n below.
+    if not max(200, ship["min_crew"]) <= n <= 50000:
+        raise ValueError("Choose a founding crew between the ship minimum and 50,000.")
     velocity = float(options.get("speed", .05))
     if not .02 <= velocity <= min(.15, drive["max_velocity_c"]):
         raise ValueError("Cruise speed exceeds the selected drive's modeled envelope.")
@@ -131,24 +136,47 @@ def world_for(config):
     reg = build_registry()
     orch = Orchestrator(reg, world, dt_years=1.0)
     orch.initialize()
-    # Original age-band rounding can create one surplus founder. Normalize only
-    # the new bridge world, before any pairings or dependent simulation ticks.
-    pop = world.state["population"]
-    expected = config["population"]["initial"]
-    for pid in sorted(pop["people"])[expected:]:
-        del pop["people"][pid]
-    pop["alive"] = len(pop["people"])
-    pop["by_generation"] = {"0": pop["alive"]}
+    # Age-band rounding can seat one surplus founder; the engine's own seam
+    # normalizes the roster before any pairings or dependent simulation ticks.
+    _pop_trim_founders(world, config["population"]["initial"])
     return world, reg, orch
 
 
+# === A: engine seams — population authority lives in the engine (2026-09-18) ===
+# Bridge code must not hand-edit world.state['population'] (or any slice it
+# does not own). These are the sanctioned doors; see the population module
+# for the full counter, partnership, and death-provenance contract.
+
+def kill_person(world, pid, cause, incident_day=None):
+    """Engine-owned roster death: flags, partner release, counters, provenance
+    event. Returns False if the person is already dead or unknown. Replaces
+    direct roster edits (e.g., outbreak casualty bookkeeping)."""
+    return _pop_apply_death(world, pid, cause, incident_day=incident_day)
+
+
+def recount_population(world):
+    """Authoritative alive/by_generation recount into the population slice."""
+    return _pop_recount(world)
+
+
 def refresh_generations(world):
-    counts = {}
-    for person in world.state["population"]["people"].values():
-        if person["alive"]:
-            key = str(person["generation"])
-            counts[key] = counts.get(key, 0) + 1
-    world.state["population"]["by_generation"] = counts
+    # Kept for existing callers (voyage.travel_tick); the engine seam is the
+    # authority now. Since 2026-09-18 the population system maintains alive and
+    # by_generation itself every tick, so this is a cheap idempotent safety net.
+    _pop_recount(world)
+
+
+def apply_effects(world, effects, kind="bridge_adjustment", source="bridge", payload=None):
+    """Route bridge-side numeric changes through the engine's event bus.
+
+    `effects` is an iterable of framework Effect objects (or (path, op, value)
+    tuples). Emitting + dispatching here means every mutation carries event
+    provenance instead of being a silent slice write. Prefer this over direct
+    dict edits for resource/morale costs computed outside a captain order.
+    """
+    resolved = tuple(e if isinstance(e, Effect) else Effect(path=e[0], op=e[1], value=e[2]) for e in effects)
+    world.events.emit(Event(kind=kind, source=source, tick=world.tick, payload=payload or {}, effects=resolved))
+    world.events.dispatch_pending(world)
 
 
 def generate(options):
@@ -201,7 +229,7 @@ class Campaign:
         w = self.world
         alive = max(0, w.read("population.alive"))
         extended = math.ceil(self.config["mission"]["voyage_years"] + w.read("ship_integrity.voyage_extension_years"))
-        return {"year": w.tick, "earth_year": int(w.earth_year), "crew": alive, "births": w.read("population.births_total"), "deaths": w.read("population.deaths_total"), "morale": round(w.read("morale.aggregate"), 1), "integrity": round(w.read("ship_integrity.integrity") * 100, 1), "mandate": round(w.read("governance.legitimacy") * 100, 1), "food_days": round(w.read("resources.food_kg") / max(1, alive * 1.2)), "medicine_years": round(w.read("resources.medicine_kg") / max(1, alive * .5), 1), "food_adequacy": w.read("resources.food_adequacy"), "arrival_year": int(extended), "remaining": max(0, int(extended) - w.tick), "active_failure": w.read("ship_integrity.active_failure"), "governance": w.read("governance.type"), "generation": max((p["generation"] for p in w.state["population"]["people"].values() if p["alive"]), default=0)}
+        return {"year": w.tick, "earth_year": int(w.earth_year), "crew": alive, "births": w.read("population.births_total"), "deaths": w.read("population.deaths_total"), "morale": round(w.read("morale.aggregate"), 1), "integrity": round(w.read("ship_integrity.integrity") * 100, 1), "mandate": round(w.read("governance.legitimacy") * 100, 1), "food_days": round(w.read("resources.food_kg") / max(1, alive * 1.2)), "medicine_years": round(w.read("resources.medicine_kg") / max(1, alive * .5), 1), "food_adequacy": w.read("resources.food_adequacy"), "arrival_year": int(extended), "remaining": max(0, int(extended) - w.tick), "active_failure": w.read("ship_integrity.active_failure"), "governance": w.read("governance.type"), "generation": max((int(k) for k in (w.read("population.by_generation") or {})), default=0)}
 
     def _person_row(self, pid, person, health):
         # Stable social roles, not inferred from sex or age. These are fictional.
@@ -229,6 +257,26 @@ class Campaign:
                 for pid, person in self.world.state["population"]["people"].items()
                 if not person["alive"] and person.get("cause_of_death") == "bridge_outbreak"
                 and health.get(str(pid), {}).get("status") == "dead"]
+
+    def history_book(self):
+        """Per-campaign deterministic life-history source (sim/life_history.py).
+
+        Derived from the campaign seed + roster, never saved; rebuilt lazily
+        whenever the people map identity changes (fresh campaign or load).
+        """
+        people = self.world.state["population"]["people"]
+        book = getattr(self, "_history_book", None)
+        if book is None or book.people is not people:
+            book = life_history.LifeHistoryBook(self.config["tunables"]["rng_seed"], people)
+            self._history_book = book
+        return book
+
+    def person_history(self, pid):
+        """Full empirically anchored fictional profile for one roster member:
+        Big Five + cognitive ability, career track/grade, promotions,
+        discipline, honors, and (for casualties) the recorded death. For
+        profile inspection and council voices; read-only, no RNG side effects."""
+        return self.history_book().profile(pid, self.world.tick)
 
     def public(self):
         s = copy.deepcopy(SITUATIONS[self.situation])

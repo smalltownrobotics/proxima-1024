@@ -50,11 +50,18 @@ class EventBus:
     then subscriber callbacks (so callbacks see the post-effect state).
     """
 
-    __slots__ = ("_pending", "_archive", "_subscribers")
+    # Why bounded: nothing in sim/ or bridge/ reads the full archive (verified
+    # 2026-09-18 — archive() had zero callers), but on a 50k-crew, 1,000+ year
+    # run the birth/death event stream alone is hundreds of MB. We keep a total
+    # count plus a recent tail for debugging instead of every event forever.
+    ARCHIVE_TAIL = 1024
+
+    __slots__ = ("_pending", "_archive", "_archived_total", "_subscribers")
 
     def __init__(self) -> None:
         self._pending: list[Event] = []
         self._archive: list[Event] = []
+        self._archived_total: int = 0
         self._subscribers: dict[str, list[Callable[[Any, Event], None]]] = {}
 
     def emit(self, event: Event) -> None:
@@ -75,10 +82,17 @@ class EventBus:
                 handler(world, event)
             dispatched.append(event)
             self._archive.append(event)
+            self._archived_total += 1
+        if len(self._archive) > self.ARCHIVE_TAIL:
+            del self._archive[: len(self._archive) - self.ARCHIVE_TAIL]
         return dispatched
 
     def archive(self) -> list[Event]:
+        """Recent tail only (last ARCHIVE_TAIL events). Full stream lives in the trajectory."""
         return list(self._archive)
+
+    def archived_total(self) -> int:
+        return self._archived_total
 
 
 def _apply_effect(world: Any, effect: Effect) -> None:

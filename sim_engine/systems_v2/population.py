@@ -4,6 +4,23 @@ Owns:    world.state['population']
 Reads:   world.state['mortality']['modifiers'] (composed by mortality system)
          world.state['fertility']['modifiers']
 Emits:   'death', 'birth', 'pair_formed' (informational; no effects)
+
+Engine seams (public API for the bridge and other out-of-tick callers):
+    apply_death(world, pid, cause, ...)  — the ONLY sanctioned way to kill a
+        person outside this system's own tick. Flips the alive flag, releases
+        the partner, maintains the death counters and by_generation, and emits
+        a provenance 'death' event. Bridge code must never hand-edit the roster.
+    recount(world)                       — authoritative alive/by_generation recount.
+    trim_founders(world, expected)       — founder-count normalization (age-band
+        rounding can seat one surplus founder; the bridge used to fix this by
+        editing the slice directly).
+
+Scale note (2026-09-18): dead people stay in the roster forever (lineage and
+life-history retrieval need them), so on a 50k-crew millennium run the people
+map grows past a million records. Every per-tick loop therefore works from a
+single alive-only scan built once per tick. The scan order is dict insertion
+order — identical to the order the old full-map loops visited living people —
+so RNG draw order, and therefore every trajectory, is unchanged.
 """
 from __future__ import annotations
 
@@ -85,6 +102,9 @@ class PopulationSystem(BaseSystem):
             "people": people,
             "next_pid": next_pid,
             "alive": sum(1 for p in people.values() if p["alive"]),
+            # Slice-owned now: genetics reads this for its generation amplifier,
+            # and the bridge previously maintained it by editing the slice.
+            "by_generation": {"0": sum(1 for p in people.values() if p["alive"])},
             "births_year": 0,
             "deaths_year": 0,
             "births_total": 0,
@@ -102,10 +122,15 @@ class PopulationSystem(BaseSystem):
         slice_["deaths_year"] = 0
         slice_["pairs_formed_year"] = 0
 
+        # Single alive-only scan for the whole tick. Dict insertion order matches
+        # the old full-map iteration order restricted to living people, which is
+        # what keeps every RNG draw below in the exact same sequence as before
+        # the scale pass (see module docstring).
+        living = [p for p in slice_["people"].values() if p["alive"]]
+
         # 1. Aging
-        for pid, p in slice_["people"].items():
-            if p["alive"]:
-                p["age"] += dt_years
+        for p in living:
+            p["age"] += dt_years
 
         # 2. Mortality — uses composed modifier from world.state['mortality']
         h0 = float(cfg.get("mortality_h0", 7.0e-5))
@@ -113,9 +138,7 @@ class PopulationSystem(BaseSystem):
         accident = float(cfg.get("accident_hazard_per_year", 0.0004))
         mort_mod = self._read_modifier(world, "mortality")
         deaths = 0
-        for pid, p in slice_["people"].items():
-            if not p["alive"]:
-                continue
+        for p in living:
             h = h0 * math.exp(alpha * p["age"]) + accident
             p_death = (1.0 - math.exp(-h * dt_years)) * mort_mod
             if rng.random() < p_death:
@@ -128,17 +151,17 @@ class PopulationSystem(BaseSystem):
                 deaths += 1
                 world.events.emit(Event(
                     kind="death", source=self.name, tick=world.tick,
-                    payload={"pid": pid, "age": p["age"], "cause": p["cause_of_death"]},
+                    payload={"pid": p["pid"], "age": p["age"], "cause": p["cause_of_death"]},
                 ))
         slice_["deaths_year"] = deaths
         slice_["deaths_total"] += deaths
 
-        # 3. Pair formation
+        # 3. Pair formation — 'living' still holds this tick's dead; re-check the flag.
         age_min = float(cfg.get("pair_age_min", 18))
         age_max = float(cfg.get("pair_age_max", 42))
         pair_chance = float(cfg.get("pair_chance_per_year", 0.10)) * dt_years
         eligibles = [
-            p for p in slice_["people"].values()
+            p for p in living
             if p["alive"] and p["partner"] is None and age_min <= p["age"] <= age_max
         ]
         rng.shuffle(eligibles)
@@ -156,12 +179,13 @@ class PopulationSystem(BaseSystem):
         birth_chance = float(cfg.get("birth_chance_per_year", 0.18)) * dt_years
         max_children = int(cfg.get("max_children_per_pair", 3))
         pop_cap = int(cfg.get("population_ceiling", 9999999))
-        alive_count = sum(1 for p in slice_["people"].values() if p["alive"])
+        alive_count = len(living) - deaths
+        newborns: list[dict] = []
         fert_mod = self._read_modifier(world, "fertility")
         if alive_count < pop_cap:
             seen_partner_ids: set[int] = set()
             births = 0
-            for f in list(slice_["people"].values()):
+            for f in living:
                 if not f["alive"] or f["sex"] != "f" or f["partner"] is None:
                     continue
                 if not (age_min <= f["age"] <= age_max):
@@ -184,6 +208,7 @@ class PopulationSystem(BaseSystem):
                         parents=(f["pid"], m["pid"]),
                     ))
                     slice_["people"][new_pid] = child
+                    newborns.append(child)
                     f["children"].append(new_pid)
                     m["children"].append(new_pid)
                     births += 1
@@ -196,8 +221,22 @@ class PopulationSystem(BaseSystem):
             slice_["births_year"] = births
             slice_["births_total"] += births
 
-        # Update authoritative alive counter so other systems can read 'population.alive'
-        slice_["alive"] = sum(1 for p in slice_["people"].values() if p["alive"])
+        # Authoritative alive counter + by_generation, maintained from this tick's
+        # survivors and newborns without another full-map scan. Genetics (which
+        # ticks after population) reads by_generation the same tick it changes.
+        gens: dict[str, int] = {}
+        alive_now = 0
+        for p in living:
+            if p["alive"]:
+                alive_now += 1
+                key = str(p["generation"])
+                gens[key] = gens.get(key, 0) + 1
+        for p in newborns:
+            alive_now += 1
+            key = str(p["generation"])
+            gens[key] = gens.get(key, 0) + 1
+        slice_["alive"] = alive_now
+        slice_["by_generation"] = gens
 
     def _read_modifier(self, world: Any, axis: str) -> float:
         """Read the multiplicative product of modifier lanes from world.state[axis]['modifiers']."""
@@ -212,6 +251,8 @@ class PopulationSystem(BaseSystem):
         return product
 
     def emit_snapshot(self, world: Any) -> dict:
+        # One alive-only pass; on millennium-scale runs the people map is
+        # dominated by the dead and this runs every tick.
         slice_ = world.state[self.name]
         alive = [p for p in slice_["people"].values() if p["alive"]]
         if not alive:
@@ -248,3 +289,86 @@ class PopulationSystem(BaseSystem):
             "pairs_active": pairs,
             "pairs_formed_year": slice_["pairs_formed_year"],
         }
+
+
+# === Engine seams — public population API for out-of-tick callers ===
+# The bridge (outbreak casualties, founder normalization, roster recounts) used
+# to reach into world.state['population'] and hand-edit it. These functions are
+# now the single sanctioned door: every population change stays engine-owned,
+# counter-consistent, and event-audited. RNG is deliberately NOT drawn here —
+# callers decide who dies and why (from their own persisted fork); this seam
+# owns the bookkeeping so it can never drift from the annual systems.
+
+def apply_death(world: Any, pid: int | str, cause: str,
+                incident_day: int | None = None) -> bool:
+    """Kill one living person, engine-side. Returns False if already dead/unknown.
+
+    Flips the alive flag once, releases the partner both ways, stamps
+    cause/died_year (and died_incident_day for tactical-clock deaths),
+    increments deaths_year/deaths_total, maintains alive/by_generation, and
+    emits a provenance 'death' event on the bus (informational, no effects;
+    it is dispatched with the caller's next dispatch/step).
+    """
+    slice_ = world.state["population"]
+    people = slice_["people"]
+    person = people.get(pid) or people.get(int(pid) if str(pid).isdigit() else pid)
+    if person is None or not person["alive"]:
+        return False
+    partner = people.get(person.get("partner"))
+    if partner is not None:
+        partner["partner"] = None
+    person["alive"] = False
+    person["partner"] = None
+    person["cause_of_death"] = cause
+    person["died_year"] = world.tick
+    if incident_day is not None:
+        person["died_incident_day"] = incident_day
+    slice_["deaths_year"] += 1
+    slice_["deaths_total"] += 1
+    slice_["alive"] -= 1
+    gens = slice_.get("by_generation") or {}
+    key = str(person["generation"])
+    if key in gens:
+        gens[key] -= 1
+        if gens[key] <= 0:
+            del gens[key]
+    slice_["by_generation"] = gens
+    world.events.emit(Event(
+        kind="death", source="population", tick=world.tick,
+        payload={"pid": person["pid"], "age": person["age"], "cause": cause,
+                 **({"incident_day": incident_day} if incident_day is not None else {})},
+    ))
+    return True
+
+
+def recount(world: Any) -> dict:
+    """Authoritative full recount of alive + by_generation into the slice.
+
+    Normally unnecessary — tick() and apply_death() keep the counters
+    incremental — but this is the safety net after loading legacy saves or any
+    bulk roster surgery. Returns {'alive': int, 'by_generation': dict}.
+    """
+    slice_ = world.state["population"]
+    gens: dict[str, int] = {}
+    for person in slice_["people"].values():
+        if person["alive"]:
+            key = str(person["generation"])
+            gens[key] = gens.get(key, 0) + 1
+    slice_["alive"] = sum(gens.values())
+    slice_["by_generation"] = gens
+    return {"alive": slice_["alive"], "by_generation": gens}
+
+
+def trim_founders(world: Any, expected: int) -> int:
+    """Drop surplus founders created by age-band rounding; returns count removed.
+
+    Only valid before the first tick (no pairings, children, or dependent
+    state exist yet). Highest-pid founders are removed so the seat order the
+    RNG produced for the first `expected` people is untouched.
+    """
+    slice_ = world.state["population"]
+    surplus = sorted(slice_["people"])[expected:]
+    for pid in surplus:
+        del slice_["people"][pid]
+    recount(world)
+    return len(surplus)

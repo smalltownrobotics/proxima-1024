@@ -1,4 +1,4 @@
-"""Live Astra and Jev adapters. Secrets come from environment variables, never the UI.
+"""Live Astra and Jev adapters. Credentials come from the environment, never the UI.
 
 Astra uses bounded tools to inspect and operate the simulation. Only an explicit
 player order authorizes advancement. Jev must finish before that order commits.
@@ -15,10 +15,23 @@ import urllib.request
 
 from engine import ACTIONS, ROOMS, SITUATIONS, catalog
 
-# === Credentials and transport ===
+# === Environment credentials and transport ===
 MODEL = "gpt-6-astra"
 JEV_MODEL = "jev-latest"
 LABELS = ("support", "question", "oppose")
+
+# === C: resident Claude agent + technical-brief provider routing ===
+# The Claude path authenticates through the machine's Claude Code CLI (Agent
+# SDK subprocess); no Anthropic API key exists in this repo.
+CLAUDE_MODEL = os.environ.get("PROXIMA_CLAUDE_MODEL", "claude-sonnet-5")
+
+
+def brief_provider():
+    """PROXIMA_BRIEF_PROVIDER: 'claude' (default) or 'astra' (gpt-6-astra path)."""
+    value = os.environ.get("PROXIMA_BRIEF_PROVIDER", "claude").strip().lower()
+    if value not in ("claude", "astra"):
+        raise RuntimeError(f"PROXIMA_BRIEF_PROVIDER must be 'claude' or 'astra', not '{value}'.")
+    return value
 
 
 def credential(name):
@@ -35,6 +48,13 @@ def readiness():
             result[label] = {"configured": bool(credential(key)), "model": MODEL if label == "astra" else JEV_MODEL}
         except Exception:
             result[label] = {"configured": False, "model": MODEL if label == "astra" else JEV_MODEL}
+    # C: ship-intelligence agent readiness = Agent SDK importable + CLI on PATH.
+    try:
+        import importlib.util as _util
+        import shutil as _shutil
+        result["claude"] = {"configured": bool(_util.find_spec("claude_agent_sdk")) and bool(_shutil.which("claude")), "model": CLAUDE_MODEL}
+    except Exception:
+        result["claude"] = {"configured": False, "model": CLAUDE_MODEL}
     return result
 
 

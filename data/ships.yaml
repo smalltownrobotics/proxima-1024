@@ -1,13 +1,13 @@
 # Proxima Sim — Ship Class Presets
 #
 # Real ship-design archetypes with mass-per-person ratios drawn from published proposals.
-# Each carries crew-capacity bounds and propulsion compatibility (which propulsion types
+# Each carries nominal crew sizing and propulsion compatibility (which propulsion types
 # can plausibly push this much mass to interstellar speeds).
 #
 # Schema:
 #   id, name, anchored_in (citation)
 #   density_tons_per_person: ship total mass per crew member at full capacity
-#   min_crew, max_crew: integer bounds
+#   min_crew: playable minimum; max_crew: nominal reference size, not a hard cap
 #   compatible_propulsion: list of propulsion ids that can plausibly handle this class
 #   notes: real constraints
 

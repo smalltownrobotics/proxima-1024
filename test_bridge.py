@@ -26,6 +26,16 @@ class BridgeTests(unittest.TestCase):
         options = {**OPTIONS, "crew": 1024, "ship": "ship_aurora_ark"}
         self.assertEqual(engine.Campaign(engine.make_config(options)).summary()["crew"], 1024)
 
+    def test_optional_large_manifest_reaches_the_engine(self):
+        options = {**OPTIONS, "crew": 50000, "ship": "ship_aurora_ark"}
+        self.assertEqual(engine.make_config(options)["population"]["initial"], 50000)
+        with self.assertRaises(ValueError):
+            engine.make_config({**options, "crew": 50001})
+        client = (engine.ROOT / "public/app.js").read_text()
+        self.assertIn('max="50000"', client)
+        self.assertIn("crew:1024", client)
+        self.assertNotIn("Math.min(1200,ship.max_crew)", client)
+
     def test_draw_starts_fresh(self):
         c = engine.generate(OPTIONS)
         self.assertEqual(len(c.candidates), 6)
@@ -95,7 +105,7 @@ class BridgeTests(unittest.TestCase):
         with patch.object(self.c, "save"):
             voyage.commit(self.c, "Replenish medical stores", {"operations": ["medical"]}, {}, {"summary": {}})
         self.assertEqual(self.c.world.tick, 0)
-        self.assertEqual(self.c.summary()["medicine_years"], 3)
+        self.assertEqual(self.c.summary()["medicine_years"], 6)
         self.assertEqual(self.c.play["mode"], "ready")
         self.assertEqual(self.c.play["revision"], 1)
 

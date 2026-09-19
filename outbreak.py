@@ -19,6 +19,8 @@ from __future__ import annotations
 import copy
 import math
 
+import engine  # circular-safe: attributes are only resolved at call time
+
 
 # === Explicit abstract game rules ===
 SLICE = "bridge_outbreak"
@@ -201,30 +203,17 @@ def _cooperation(c, reactions):
 
 # === Actual roster transitions and bounded response window ===
 def _die(c, pid, person, case, day):
-    if not person["alive"]:
+    # Engine-owned roster death (2026-09-18 seam): flags, partner release,
+    # counters and a provenance event all live in engine.kill_person now.
+    if not engine.kill_person(c.world, pid, "bridge_outbreak", incident_day=day):
         return False
-    people = _people(c)
-    partner = people.get(str(person.get("partner")))
-    if partner is not None:
-        partner["partner"] = None
-    person.update(alive=False, partner=None, cause_of_death="bridge_outbreak", died_year=c.world.tick, died_incident_day=day)
     case.update(status="dead", day_resolved=day)
-    pop = c.world.state["population"]
-    pop["deaths_total"] += 1
-    pop["deaths_year"] += 1
     return True
 
 
 def _sync_population(c):
-    pop = c.world.state["population"]
-    generations = {}
-    for person in pop["people"].values():
-        if person["alive"]:
-            generation = str(person["generation"])
-            generations[generation] = generations.get(generation, 0) + 1
-    pop["alive"] = sum(generations.values())
-    pop["by_generation"] = generations
-    if not pop["alive"]:
+    engine.recount_population(c.world)
+    if not c.world.state["population"]["alive"]:
         c.status = "lost"
 
 
